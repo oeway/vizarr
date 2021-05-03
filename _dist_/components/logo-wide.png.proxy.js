@@ -1,1 +1,0 @@
-export default "/_dist_/components/logo-wide.png";

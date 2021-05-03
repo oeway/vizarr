@@ -6,7 +6,7 @@ import {CircularProgress, Typography} from "../../_snowpack/pkg/@material-ui/cor
 import {makeStyles} from "../../_snowpack/pkg/@material-ui/styles.js";
 import {viewerViewState, layersSelector, sourceInfoState, loadingState} from "../state.js";
 import {isInterleaved, fitBounds} from "../utils.js";
-import logo from "./logo-wide.png.proxy.js";
+import logo from "../../logo-wide.png.proxy.js";
 const useStyles = makeStyles({
   loadingIcon: {
     position: "absolute",
