@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { useSetRecoilState } from 'recoil';
 
-import { layerIdsState, sourceInfoState, viewerViewState } from './state';
+import { layerIdsState, sourceInfoState, viewerViewState, loadingState } from './state';
 import type { ImageLayerConfig } from './state';
 
 import Viewer from './components/Viewer';
@@ -11,18 +11,26 @@ function App() {
   const setViewState = useSetRecoilState(viewerViewState);
   const setLayerIds = useSetRecoilState(layerIdsState);
   const setSourceInfo = useSetRecoilState(sourceInfoState);
+  const setLoading = useSetRecoilState(loadingState);
 
   async function addImage(config: ImageLayerConfig) {
-    const { createSourceData } = await import('./io');
-    const id = Math.random().toString(36).slice(2);
-    const sourceData = await createSourceData(config);
-    setSourceInfo((prevSourceInfo) => {
-      if (!sourceData.name) {
-        sourceData.name = `image_${Object.keys(prevSourceInfo).length}`;
-      }
-      return { ...prevSourceInfo, [id]: sourceData };
-    });
-    setLayerIds((prevIds) => [...prevIds, id]);
+    try {
+      setLoading(true);
+      const { createSourceData } = await import('./io');
+      const id = Math.random().toString(36).slice(2);
+      const sourceData = await createSourceData(config);
+      setSourceInfo((prevSourceInfo) => {
+        if (!sourceData.name) {
+          sourceData.name = `image_${Object.keys(prevSourceInfo).length}`;
+        }
+        return { ...prevSourceInfo, [id]: sourceData };
+      });
+      setLayerIds((prevIds) => [...prevIds, id]);
+    } catch (e) {
+      throw e;
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => {
@@ -59,7 +67,8 @@ function App() {
       });
       const add_image = async (props: ImageLayerConfig) => addImage(props);
       const set_view_state = async (vs: { zoom: number; target: number[] }) => setViewState(vs);
-      api.export({ add_image, set_view_state });
+      const set_loading = async (ld: boolean | string) => setLoading(ld);
+      api.export({ add_image, set_view_state, set_loading });
     }
     // enable imjoy api when loaded as an iframe
     if (window.self !== window.top) {
