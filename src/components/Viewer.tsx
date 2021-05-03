@@ -8,7 +8,7 @@ import { makeStyles } from '@material-ui/styles';
 
 import { viewerViewState, layersSelector, LayerState, sourceInfoState, loadingState } from '../state';
 import { isInterleaved, fitBounds } from '../utils';
-import logo from '../../logo-wide.png';
+import logo from './logo-wide.png';
 
 const useStyles = makeStyles({
   loadingIcon: {
