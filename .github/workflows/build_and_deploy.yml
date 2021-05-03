@@ -16,7 +16,6 @@ jobs:
         run: |
           npm install
           npm run export && touch out/.nojekyll
-          echo 'export default "/vizarr/logo-wide.png";' > out/logo-wide.png.proxy.js
 
       - name: Deploy 🚀
         uses: JamesIves/github-pages-deploy-action@3.7.1
