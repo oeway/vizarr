@@ -35,7 +35,7 @@ function AxisSlider({ layerId, axisIndex, max }: { layerId: string; axisIndex: n
   useEffect(() => {
     // Use first channel to get initial value of slider - can be undefined on first render
     setValue(layer.layerProps.loaderSelection[0] ? layer.layerProps.loaderSelection[0][axisIndex] : 1);
-    setLabel(Array.isArray(axisLabel) ? axisLabel[value]:axisLabel);
+    setLabel(Array.isArray(axisLabel) ? axisLabel[value] : axisLabel);
   }, [layer.layerProps.loaderSelection]);
 
   const handleRelease = () => {
@@ -53,7 +53,7 @@ function AxisSlider({ layerId, axisIndex, max }: { layerId: string; axisIndex: n
 
   const handleDrag = (_: ChangeEvent<unknown>, value: number | number[]) => {
     setValue(value as number);
-    setLabel(Array.isArray(axisLabel) ? axisLabel[value as number]:axisLabel);
+    setLabel(Array.isArray(axisLabel) ? axisLabel[value as number] : axisLabel);
   };
 
   return (
