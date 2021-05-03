@@ -40,3 +40,7 @@ export const layersSelector = selector({
     return get(waitForAll(layers));
   }
 });
+export const loadingState = atom({
+  key: "loading",
+  default: false
+});

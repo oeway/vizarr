@@ -40,7 +40,8 @@ function Menu() {
   }, /* @__PURE__ */ React.createElement(IconButton, {
     style: {
       backgroundColor: "transparent",
-      padding: 0
+      padding: 0,
+      visibility: layerIds.length > 0 ? "visible" : "hidden"
     },
     onClick: toggle
   }, hidden ? /* @__PURE__ */ React.createElement(Add, null) : /* @__PURE__ */ React.createElement(Remove, null)), /* @__PURE__ */ React.createElement("div", {

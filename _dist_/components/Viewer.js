@@ -2,8 +2,35 @@ import React, {useRef} from "../../_snowpack/pkg/react.js";
 import {useRecoilState, useRecoilValue} from "../../_snowpack/pkg/recoil.js";
 import DeckGL from "../../_snowpack/pkg/deck.gl.js";
 import {OrthographicView} from "../../_snowpack/pkg/@deck.gl/core.js";
-import {viewerViewState, layersSelector} from "../state.js";
+import {CircularProgress, Typography} from "../../_snowpack/pkg/@material-ui/core.js";
+import {makeStyles} from "../../_snowpack/pkg/@material-ui/styles.js";
+import {viewerViewState, layersSelector, sourceInfoState, loadingState} from "../state.js";
 import {isInterleaved, fitBounds} from "../utils.js";
+import logo from "../../logo-wide.png.proxy.js";
+const useStyles = makeStyles({
+  loadingIcon: {
+    position: "absolute",
+    left: "calc(50vw - 20px)",
+    top: "calc(50vh - 20px)",
+    color: "white"
+  },
+  loadingText: {
+    position: "absolute",
+    left: "50vw",
+    top: "calc(50vh + 45px)",
+    color: "white",
+    transform: "translate(-50%, -50%)"
+  },
+  floatingLogo: {
+    position: "absolute",
+    left: "50vw",
+    top: "50vh",
+    color: "white",
+    width: "200px",
+    maxWidth: "100%",
+    transform: "translate(-50%, -50%)"
+  }
+});
 function getLayerSize(props) {
   const {loader, rows, columns} = props;
   const [base, maxZoom] = Array.isArray(loader) ? [loader[0], loader.length] : [loader, 0];
@@ -20,6 +47,9 @@ function WrappedViewStateDeck({layers}) {
   const [viewState, setViewState] = useRecoilState(viewerViewState);
   const deckRef = useRef(null);
   const views = [new OrthographicView({id: "ortho", controller: true})];
+  const sourceInfo = useRecoilValue(sourceInfoState);
+  const loading = useRecoilValue(loadingState);
+  const classes = useStyles();
   if (deckRef.current && viewState?.default && layers[0]?.props?.loader) {
     const {deck} = deckRef.current;
     const {width, height, maxZoom} = getLayerSize(layers[0].props);
@@ -27,13 +57,25 @@ function WrappedViewStateDeck({layers}) {
     const {zoom, target} = fitBounds([width, height], [deck.width, deck.height], maxZoom, padding);
     setViewState({zoom, target});
   }
-  return /* @__PURE__ */ React.createElement(DeckGL, {
+  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("img", {
+    className: classes.floatingLogo,
+    style: {visibility: Object.keys(sourceInfo).length > 0 || loading ? "hidden" : "visible"},
+    src: logo,
+    alt: "logo"
+  }), /* @__PURE__ */ React.createElement(CircularProgress, {
+    className: classes.loadingIcon,
+    style: {visibility: loading ? "visible" : "hidden"}
+  }), /* @__PURE__ */ React.createElement(Typography, {
+    className: classes.loadingText,
+    style: {visibility: typeof loading === "string" ? "visible" : "hidden"},
+    variant: "h6"
+  }, loading), /* @__PURE__ */ React.createElement(DeckGL, {
     ref: deckRef,
     layers,
     viewState,
     onViewStateChange: (e) => setViewState(e.viewState),
     views
-  });
+  }));
 }
 function Viewer() {
   const layerConstructors = useRecoilValue(layersSelector);

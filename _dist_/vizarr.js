@@ -2,24 +2,32 @@ import * as __SNOWPACK_ENV__ from '../_snowpack/env.js';
 
 import React, {useEffect} from "../_snowpack/pkg/react.js";
 import {useSetRecoilState} from "../_snowpack/pkg/recoil.js";
-import {layerIdsState, sourceInfoState, viewerViewState} from "./state.js";
+import {layerIdsState, sourceInfoState, viewerViewState, loadingState} from "./state.js";
 import Viewer from "./components/Viewer.js";
 import Menu from "./components/Menu.js";
 function App() {
   const setViewState = useSetRecoilState(viewerViewState);
   const setLayerIds = useSetRecoilState(layerIdsState);
   const setSourceInfo = useSetRecoilState(sourceInfoState);
+  const setLoading = useSetRecoilState(loadingState);
   async function addImage(config) {
-    const {createSourceData} = await import("./io.js");
-    const id = Math.random().toString(36).slice(2);
-    const sourceData = await createSourceData(config);
-    setSourceInfo((prevSourceInfo) => {
-      if (!sourceData.name) {
-        sourceData.name = `image_${Object.keys(prevSourceInfo).length}`;
-      }
-      return {...prevSourceInfo, [id]: sourceData};
-    });
-    setLayerIds((prevIds) => [...prevIds, id]);
+    try {
+      setLoading(true);
+      const {createSourceData} = await import("./io.js");
+      const id = Math.random().toString(36).slice(2);
+      const sourceData = await createSourceData(config);
+      setSourceInfo((prevSourceInfo) => {
+        if (!sourceData.name) {
+          sourceData.name = `image_${Object.keys(prevSourceInfo).length}`;
+        }
+        return {...prevSourceInfo, [id]: sourceData};
+      });
+      setLayerIds((prevIds) => [...prevIds, id]);
+    } catch (e) {
+      throw e;
+    } finally {
+      setLoading(false);
+    }
   }
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -48,7 +56,8 @@ function App() {
       });
       const add_image = async (props) => addImage(props);
       const set_view_state = async (vs) => setViewState(vs);
-      api.export({add_image, set_view_state});
+      const set_loading = async (ld) => setLoading(ld);
+      api.export({add_image, set_view_state, set_loading});
     }
     if (window.self !== window.top) {
       initImjoy();
