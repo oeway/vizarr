@@ -56,8 +56,8 @@ function App() {
       });
       const add_image = async (props) => addImage(props);
       const set_view_state = async (vs) => setViewState(vs);
-      const set_loading = async (ld) => setLoading(ld);
-      api.export({add_image, set_view_state, set_loading});
+      const show_loading = async (ld) => setLoading(ld);
+      api.export({add_image, set_view_state, show_loading});
     }
     if (window.self !== window.top) {
       initImjoy();
