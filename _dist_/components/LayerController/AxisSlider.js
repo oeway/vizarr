@@ -26,8 +26,9 @@ function AxisSlider({layerId, axisIndex, max}) {
   const [value, setValue] = useState(0);
   const [label, setLabel] = useState(0);
   useEffect(() => {
-    setValue(layer.layerProps.loaderSelection[0] ? layer.layerProps.loaderSelection[0][axisIndex] : 1);
-    setLabel(Array.isArray(axisLabel) ? axisLabel[value] : axisLabel);
+    const value2 = layer.layerProps.loaderSelection[0] ? layer.layerProps.loaderSelection[0][axisIndex] : 1;
+    setValue(value2);
+    setLabel(Array.isArray(axisLabel) ? axisLabel[value2] : axisLabel);
   }, [layer.layerProps.loaderSelection]);
   const handleRelease = () => {
     setLayer((prev) => {
