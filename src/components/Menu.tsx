@@ -40,6 +40,7 @@ function Menu(): JSX.Element {
           style={{
             backgroundColor: 'transparent',
             padding: 0,
+            visibility: layerIds.length > 0 ? 'visible' : 'hidden',
           }}
           onClick={toggle}
         >

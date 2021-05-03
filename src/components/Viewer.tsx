@@ -3,9 +3,37 @@ import { useRecoilState, useRecoilValue } from 'recoil';
 import DeckGL from 'deck.gl';
 import { OrthographicView } from '@deck.gl/core';
 import type { Layer } from '@deck.gl/core';
+import { CircularProgress, Typography } from '@material-ui/core';
+import { makeStyles } from '@material-ui/styles';
 
-import { viewerViewState, layersSelector, LayerState } from '../state';
+import { viewerViewState, layersSelector, LayerState, sourceInfoState, loadingState } from '../state';
 import { isInterleaved, fitBounds } from '../utils';
+import logo from '../../logo-wide.png';
+
+const useStyles = makeStyles({
+  loadingIcon: {
+    position: 'absolute',
+    left: 'calc(50vw - 20px)',
+    top: 'calc(50vh - 20px)',
+    color: 'white',
+  },
+  loadingText: {
+    position: 'absolute',
+    left: '50vw',
+    top: 'calc(50vh + 45px)',
+    color: 'white',
+    transform: 'translate(-50%, -50%)',
+  },
+  floatingLogo: {
+    position: 'absolute',
+    left: '50vw',
+    top: '50vh',
+    color: 'white',
+    width: '200px',
+    maxWidth: '100%',
+    transform: 'translate(-50%, -50%)',
+  },
+});
 
 function getLayerSize(props: LayerState['layerProps']) {
   const { loader, rows, columns } = props;
@@ -26,6 +54,9 @@ function WrappedViewStateDeck({ layers }: { layers: Layer<any, any>[] }): JSX.El
   const [viewState, setViewState] = useRecoilState(viewerViewState);
   const deckRef = useRef<DeckGL>(null);
   const views = [new OrthographicView({ id: 'ortho', controller: true })];
+  const sourceInfo = useRecoilValue(sourceInfoState);
+  const loading = useRecoilValue(loadingState);
+  const classes = useStyles();
 
   // If viewState hasn't been updated, use the first loader to guess viewState
   // TODO: There is probably a better place / way to set the intital view and this is a hack.
@@ -38,13 +69,29 @@ function WrappedViewStateDeck({ layers }: { layers: Layer<any, any>[] }): JSX.El
   }
 
   return (
-    <DeckGL
-      ref={deckRef}
-      layers={layers}
-      viewState={viewState}
-      onViewStateChange={(e) => setViewState(e.viewState)}
-      views={views}
-    />
+    <>
+      <img
+        className={classes.floatingLogo}
+        style={{ visibility: Object.keys(sourceInfo).length > 0 || loading ? 'hidden' : 'visible' }}
+        src={logo}
+        alt="logo"
+      ></img>
+      <CircularProgress className={classes.loadingIcon} style={{ visibility: loading ? 'visible' : 'hidden' }} />
+      <Typography
+        className={classes.loadingText}
+        style={{ visibility: typeof loading === 'string' ? 'visible' : 'hidden' }}
+        variant="h6"
+      >
+        {loading}
+      </Typography>
+      <DeckGL
+        ref={deckRef}
+        layers={layers}
+        viewState={viewState}
+        onViewStateChange={(e) => setViewState(e.viewState)}
+        views={views}
+      />
+    </>
   );
 }
 
