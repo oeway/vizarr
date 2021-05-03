@@ -13,8 +13,6 @@ jobs:
           persist-credentials: false
 
       - name: Install and Build 🔧
-        env:
-          VIZARR_PREFIX: './vizarr'
         run: |
           npm install
           npm run export && touch out/.nojekyll
