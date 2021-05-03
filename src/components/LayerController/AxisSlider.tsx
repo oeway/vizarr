@@ -34,7 +34,8 @@ function AxisSlider({ layerId, axisIndex, max }: { layerId: string; axisIndex: n
   // If axis index change externally, need to update state
   useEffect(() => {
     // Use first channel to get initial value of slider - can be undefined on first render
-    setValue(layer.layerProps.loaderSelection[0] ? layer.layerProps.loaderSelection[0][axisIndex] : 1);
+    const value = layer.layerProps.loaderSelection[0] ? layer.layerProps.loaderSelection[0][axisIndex] : 1;
+    setValue(value);
     setLabel(Array.isArray(axisLabel) ? axisLabel[value] : axisLabel);
   }, [layer.layerProps.loaderSelection]);
 
