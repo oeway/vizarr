@@ -1,1 +1,1 @@
-export default "/logo-wide.png";
+export default "/vizarr/logo-wide.png";
