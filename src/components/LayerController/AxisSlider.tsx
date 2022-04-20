@@ -1,12 +1,12 @@
 import { Grid, Typography, Divider } from '@material-ui/core';
-import { useRecoilState, useRecoilValue } from 'recoil';
+import { useAtom } from 'jotai';
+import { useAtomValue } from 'jotai/utils';
 import type { ChangeEvent } from 'react';
 import React, { useState, useEffect } from 'react';
 import { Slider } from '@material-ui/core';
 import { withStyles } from '@material-ui/styles';
 import DimensionOptions from './AxisOptions';
-
-import { layerStateFamily, sourceInfoState } from '../../state';
+import type { ControllerProps } from '../../state';
 
 const DenseSlider = withStyles({
   root: {
@@ -19,10 +19,15 @@ const DenseSlider = withStyles({
   },
 })(Slider);
 
-function AxisSlider({ layerId, axisIndex, max }: { layerId: string; axisIndex: number; max: number }): JSX.Element {
-  const [layer, setLayer] = useRecoilState(layerStateFamily(layerId));
-  const sourceInfo = useRecoilValue(sourceInfoState);
-  const { axis_labels } = sourceInfo[layerId];
+interface Props {
+  axisIndex: number;
+  max: number;
+}
+
+function AxisSlider({ sourceAtom, layerAtom, axisIndex, max }: ControllerProps<Props>) {
+  const [layer, setLayer] = useAtom(layerAtom);
+  const sourceData = useAtomValue(sourceAtom);
+  const { axis_labels } = sourceData;
   let axisLabel = axis_labels[axisIndex];
   if (axisLabel === 't' || axisLabel === 'z') {
     axisLabel = axisLabel.toUpperCase();
@@ -34,16 +39,15 @@ function AxisSlider({ layerId, axisIndex, max }: { layerId: string; axisIndex: n
   // If axis index change externally, need to update state
   useEffect(() => {
     // Use first channel to get initial value of slider - can be undefined on first render
-    const value = layer.layerProps.loaderSelection[0] ? layer.layerProps.loaderSelection[0][axisIndex] : 1;
-    setValue(value);
+    setValue(layer.layerProps.selections[0] ? layer.layerProps.selections[0][axisIndex] : 1);
     setLabel(Array.isArray(axisLabel) ? axisLabel[value] : axisLabel);
-  }, [layer.layerProps.loaderSelection]);
+  }, [layer.layerProps.selections]);
 
   const handleRelease = () => {
     setLayer((prev) => {
       let layerProps = { ...prev.layerProps };
       // for each channel, update index of this axis
-      layerProps.loaderSelection = layerProps.loaderSelection.map((ch) => {
+      layerProps.selections = layerProps.selections.map((ch) => {
         let new_ch = [...ch];
         new_ch[axisIndex] = value;
         return new_ch;
@@ -60,7 +64,7 @@ function AxisSlider({ layerId, axisIndex, max }: { layerId: string; axisIndex: n
   return (
     <>
       <Grid>
-        <Grid container justify="space-between">
+        <Grid container justifyContent="space-between">
           <Grid item xs={10}>
             <div style={{ width: 165, overflow: 'hidden', textOverflow: 'ellipsis' }}>
               <Typography variant="caption">
@@ -69,10 +73,10 @@ function AxisSlider({ layerId, axisIndex, max }: { layerId: string; axisIndex: n
             </div>
           </Grid>
           <Grid item xs={1}>
-            <DimensionOptions layerId={layerId} axisIndex={axisIndex} max={max} />
+            <DimensionOptions sourceAtom={sourceAtom} layerAtom={layerAtom} axisIndex={axisIndex} max={max} />
           </Grid>
         </Grid>
-        <Grid container justify="space-between">
+        <Grid container justifyContent="space-between">
           <Grid item xs={12}>
             <DenseSlider
               value={value}

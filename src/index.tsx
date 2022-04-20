@@ -1,22 +1,21 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
-import { RecoilRoot } from 'recoil';
+import { Provider } from 'jotai';
 import { ThemeProvider } from '@material-ui/styles';
 
 import Vizarr from './vizarr';
 import theme from './theme';
+import './codecs/register';
+
+import { version } from '../package.json';
+
+console.log(`vizarr v${version}: https://github.com/hms-dbmi/vizarr`);
 
 ReactDOM.render(
   <ThemeProvider theme={theme}>
-    <RecoilRoot>
+    <Provider>
       <Vizarr />
-    </RecoilRoot>
+    </Provider>
   </ThemeProvider>,
   document.getElementById('root')
 );
-
-// Hot Module Replacement (HMR) - Remove this snippet to remove HMR.
-// Learn more: https://www.snowpack.dev/#hot-module-replacement
-if (import.meta.hot) {
-  import.meta.hot.accept();
-}

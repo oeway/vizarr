@@ -1,52 +1,51 @@
 import React from 'react';
-import { useRecoilState, useRecoilValue } from 'recoil';
+import { useAtom } from 'jotai';
+import { useAtomValue } from 'jotai/utils';
 import type { ChangeEvent } from 'react';
 import { Slider, Typography, Grid, IconButton } from '@material-ui/core';
 import { RadioButtonChecked, RadioButtonUnchecked } from '@material-ui/icons';
-
 import ChannelOptions from './ChannelOptions';
-import { layerStateFamily, sourceInfoState } from '../../state';
+import type { ControllerProps } from '../../state';
 
 interface ChannelConfig {
-  layerId: string;
   channelIndex: number;
 }
 
-function ChannelController({ layerId, channelIndex }: ChannelConfig): JSX.Element {
-  const sourceInfo = useRecoilValue(sourceInfoState);
-  const [layer, setLayer] = useRecoilState(layerStateFamily(layerId));
+function ChannelController({ sourceAtom, layerAtom, channelIndex }: ControllerProps<ChannelConfig>) {
+  const sourceData = useAtomValue(sourceAtom);
+  const [layer, setLayer] = useAtom(layerAtom);
 
   const handleContrastChange = (_: ChangeEvent<unknown>, v: number | number[]) => {
     setLayer((prev) => {
-      const sliderValues = [...prev.layerProps.sliderValues];
-      sliderValues[channelIndex] = v as number[];
-      return { ...prev, layerProps: { ...prev.layerProps, sliderValues } };
+      const contrastLimits = [...prev.layerProps.contrastLimits];
+      contrastLimits[channelIndex] = v as [number, number];
+      return { ...prev, layerProps: { ...prev.layerProps, contrastLimits } };
     });
   };
 
   const handleVisibilityChange = () => {
     setLayer((prev) => {
-      const channelIsOn = [...prev.layerProps.channelIsOn];
-      channelIsOn[channelIndex] = !channelIsOn[channelIndex];
-      return { ...prev, layerProps: { ...prev.layerProps, channelIsOn } };
+      const channelsVisible = [...prev.layerProps.channelsVisible];
+      channelsVisible[channelIndex] = !channelsVisible[channelIndex];
+      return { ...prev, layerProps: { ...prev.layerProps, channelsVisible } };
     });
   };
 
-  const { sliderValues, colorValues, contrastLimits, channelIsOn, colormap, loaderSelection } = layer.layerProps;
+  const lp = layer.layerProps;
 
   // Material slider tries to sort in place. Need to copy.
-  const value = [...sliderValues[channelIndex]];
-  const color = `rgb(${colormap ? [255, 255, 255] : colorValues[channelIndex]})`;
-  const on = channelIsOn[channelIndex];
-  const [min, max] = contrastLimits[channelIndex];
+  const value = [...lp.contrastLimits[channelIndex]];
+  const color = `rgb(${lp.colormap ? [255, 255, 255] : lp.colors[channelIndex]})`;
+  const on = lp.channelsVisible[channelIndex];
+  const [min, max] = lp.contrastLimitsRange[channelIndex];
 
-  const { channel_axis, names } = sourceInfo[layerId];
-  const selection = loaderSelection[channelIndex];
+  const { channel_axis, names } = sourceData;
+  const selection = lp.selections[channelIndex];
   const nameIndex = Number.isInteger(channel_axis) ? selection[channel_axis as number] : 0;
   const label = names[nameIndex];
   return (
     <>
-      <Grid container justify="space-between" wrap="nowrap">
+      <Grid container justifyContent="space-between" wrap="nowrap">
         <Grid item xs={10}>
           <div style={{ width: 165, overflow: 'hidden', textOverflow: 'ellipsis' }}>
             <Typography variant="caption" noWrap>
@@ -55,10 +54,10 @@ function ChannelController({ layerId, channelIndex }: ChannelConfig): JSX.Elemen
           </div>
         </Grid>
         <Grid item xs={1}>
-          <ChannelOptions layerId={layerId} channelIndex={channelIndex} />
+          <ChannelOptions sourceAtom={sourceAtom} layerAtom={layerAtom} channelIndex={channelIndex} />
         </Grid>
       </Grid>
-      <Grid container justify="space-between">
+      <Grid container justifyContent="space-between">
         <Grid item xs={2}>
           <IconButton
             style={{

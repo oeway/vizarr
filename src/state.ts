@@ -1,22 +1,19 @@
-import { atom, atomFamily, selector, waitForAll } from 'recoil';
-import type { ZarrArray } from 'zarr';
 import type { ImageLayer, MultiscaleImageLayer, ZarrPixelSource } from '@hms-dbmi/viv';
-import type { VivLayerProps } from 'viv-layers';
-import type GridLayer from './gridLayer';
-import { Matrix4 } from '@math.gl/core/dist/esm';
+import type { Matrix4 } from 'math.gl';
+import type { PrimitiveAtom } from 'jotai';
+import { atom } from 'jotai';
+import { atomFamily, splitAtom, waitForAll } from 'jotai/utils';
+import type { ZarrArray } from 'zarr';
+import type { default as GridLayer, GridLayerProps, GridLoader } from './gridLayer';
+import { initLayerStateFromSource } from './io';
 
 export const DEFAULT_VIEW_STATE = { zoom: 0, target: [0, 0, 0], default: true };
-export const DEFAULT_LAYER_PROPS = {
-  loader: [],
-  colorValues: [],
-  sliderValues: [],
-  contrastLimits: [],
-  loaderSelection: [],
-  channelIsOn: [],
-  colormap: '',
-  opacity: 1,
-  excludeBackground: true,
-};
+
+interface ViewState {
+  zoom: number;
+  target: number[];
+  default?: boolean;
+}
 
 interface BaseConfig {
   source: string | ZarrArray['store'];
@@ -32,25 +29,18 @@ interface BaseConfig {
 export interface MultichannelConfig extends BaseConfig {
   colors?: string[];
   channel_axis?: number;
-  contrast_limits?: number[][];
+  contrast_limits?: [min: number, max: number][];
   names?: string[];
   visibilities?: boolean[];
 }
 
 export interface SingleChannelConfig extends BaseConfig {
   color?: string;
-  contrast_limits?: number[];
+  contrast_limits?: [min: number, max: number];
   visibility?: boolean;
 }
 
 export type ImageLayerConfig = MultichannelConfig | SingleChannelConfig;
-
-export interface GridLoader {
-  loader: ZarrPixelSource<string[]>;
-  row: number;
-  col: number;
-  name: string;
-}
 
 export type SourceData = {
   loader: ZarrPixelSource<string[]>[];
@@ -63,7 +53,7 @@ export type SourceData = {
   channel_axis: number | null;
   colors: string[];
   names: string[];
-  contrast_limits: number[][];
+  contrast_limits: ([min: number, max: number] | undefined)[];
   visibilities: boolean[];
   defaults: {
     selection: number[];
@@ -75,51 +65,65 @@ export type SourceData = {
   onClick?: (e: any) => void;
 };
 
+export type VivProps = ConstructorParameters<typeof MultiscaleImageLayer>[0];
+
+export interface BaseLayerProps {
+  id: string;
+  contrastLimits: VivProps['contrastLimits'];
+  colors: [r: number, g: number, b: number][];
+  channelsVisible: NonNullable<VivProps['channelsVisible']>;
+  opacity: NonNullable<VivProps['opacity']>;
+  colormap: string; // TODO: more precise
+  selections: number[][];
+  modelMatrix: Matrix4;
+  contrastLimitsRange: [min: number, max: number][];
+  onClick?: (e: any) => void;
+}
+
+interface MultiscaleImageLayerProps extends BaseLayerProps {
+  loader: ZarrPixelSource<string[]>[];
+}
+
+interface ImageLayerProps extends BaseLayerProps {
+  loader: ZarrPixelSource<string[]>;
+}
+
+type LayerMap = {
+  image: [typeof ImageLayer, ImageLayerProps];
+  multiscale: [typeof MultiscaleImageLayer, MultiscaleImageLayerProps];
+  grid: [GridLayer, { loader: ZarrPixelSource<string[]> | ZarrPixelSource<string[]>[] } & GridLayerProps];
+};
+
 export type LayerCtr<T> = new (...args: any[]) => T;
-export type LayerState = {
-  Layer: null | LayerCtr<ImageLayer | MultiscaleImageLayer | GridLayer>;
-  layerProps: VivLayerProps & {
-    loader: ZarrPixelSource<string[]> | ZarrPixelSource<string[]>[];
-    contrastLimits: number[][];
-    loaders?: GridLoader[];
-    rows?: number;
-    columns?: number;
-    onClick?: (e: any) => void;
-  };
+export type LayerState<T extends 'image' | 'multiscale' | 'grid' = 'image' | 'multiscale' | 'grid'> = {
+  Layer: LayerCtr<LayerMap[T][0]>;
+  layerProps: LayerMap[T][1];
   on: boolean;
 };
 
-export const sourceInfoState = atom({
-  key: 'sourceInfo',
-  default: {} as { [id: string]: SourceData },
-});
+type WithId<T> = T & { id: string };
 
-export const layerIdsState = atom({
-  key: 'layerIds',
-  default: [] as string[],
-});
+export type ControllerProps<T = {}> = {
+  sourceAtom: PrimitiveAtom<WithId<SourceData>>;
+  layerAtom: PrimitiveAtom<WithId<LayerState>>;
+} & T;
 
-export const viewerViewState = atom({
-  key: 'viewerViewState',
-  default: DEFAULT_VIEW_STATE as { zoom: number; target: number[]; default?: boolean },
-});
+export const sourceInfoAtom = atom<WithId<SourceData>[]>([]);
 
-export const layerStateFamily = atomFamily({
-  key: 'layerStateFamily',
-  default: (id: string): LayerState => ({
-    Layer: null,
-    layerProps: { id, modelMatrix: new Matrix4(), ...DEFAULT_LAYER_PROPS },
-    on: false,
-  }),
-});
+export const viewStateAtom = atom<ViewState>(DEFAULT_VIEW_STATE);
 
-export const layersSelector = selector({
-  key: 'layerSelector',
-  get: ({ get }) => {
-    const layerIds = get(layerIdsState);
-    const layers = layerIds.map((id) => layerStateFamily(id));
-    return get(waitForAll(layers));
-  },
+export const sourceInfoAtomAtoms = splitAtom(sourceInfoAtom);
+
+export const layerFamilyAtom = atomFamily(
+  (param: WithId<SourceData>) => atom({ ...initLayerStateFromSource(param), id: param.id }),
+  (a, b) => a.id === b.id
+);
+
+export const layerAtoms = atom((get) => {
+  const atoms = get(sourceInfoAtomAtoms);
+  if (atoms.length === 0) return [];
+  const layers = atoms.map((a) => layerFamilyAtom(get(a)));
+  return get(waitForAll(layers));
 });
 
 export const loadingState = atom({

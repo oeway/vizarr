@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import type { MouseEvent, ChangeEvent } from 'react';
-import { useRecoilState, useRecoilValue } from 'recoil';
+import { useAtom } from 'jotai';
+import { useAtomValue } from 'jotai/utils';
 import { IconButton, Popover, Paper, Typography, Divider, Input, NativeSelect } from '@material-ui/core';
 import { withStyles } from '@material-ui/styles';
 import { MoreHoriz, Remove } from '@material-ui/icons';
-
-import { layerStateFamily, sourceInfoState } from '../../state';
+import type { ControllerProps } from '../../state';
 import ColorPalette from './ColorPalette';
 
 const DenseInput = withStyles({
@@ -15,11 +15,15 @@ const DenseInput = withStyles({
   },
 })(Input);
 
-function ChannelOptions({ layerId, channelIndex }: { layerId: string; channelIndex: number }): JSX.Element {
-  const sourceInfo = useRecoilValue(sourceInfoState);
-  const [layer, setLayer] = useRecoilState(layerStateFamily(layerId));
+interface Props {
+  channelIndex: number;
+}
+
+function ChannelOptions({ sourceAtom, layerAtom, channelIndex }: ControllerProps<Props>) {
+  const sourceData = useAtomValue(sourceAtom);
+  const [layer, setLayer] = useAtom(layerAtom);
   const [anchorEl, setAnchorEl] = useState<null | Element>(null);
-  const { channel_axis, names } = sourceInfo[layerId];
+  const { channel_axis, names } = sourceData;
 
   const handleClick = (event: MouseEvent<HTMLButtonElement>) => {
     setAnchorEl(event.currentTarget);
@@ -29,11 +33,11 @@ function ChannelOptions({ layerId, channelIndex }: { layerId: string; channelInd
     setAnchorEl(null);
   };
 
-  const handleColorChange = (rgb: number[]) => {
+  const handleColorChange = (rgb: [number, number, number]) => {
     setLayer((prev) => {
-      const colorValues = [...prev.layerProps.colorValues];
-      colorValues[channelIndex] = rgb;
-      return { ...prev, layerProps: { ...prev.layerProps, colorValues } };
+      const colors = [...prev.layerProps.colors];
+      colors[channelIndex] = rgb;
+      return { ...prev, layerProps: { ...prev.layerProps, colors } };
     });
   };
 
@@ -46,25 +50,25 @@ function ChannelOptions({ layerId, channelIndex }: { layerId: string; channelInd
 
     setLayer((prev) => {
       // Need to move sliders in if contrast limits are narrower
+      const contrastLimitsRange = [...prev.layerProps.contrastLimitsRange];
       const contrastLimits = [...prev.layerProps.contrastLimits];
-      const sliderValues = [...prev.layerProps.sliderValues];
 
-      const [cmin, cmax] = contrastLimits[channelIndex];
-      const [smin, smax] = sliderValues[channelIndex];
+      const [cmin, cmax] = contrastLimitsRange[channelIndex];
+      const [smin, smax] = contrastLimits[channelIndex];
 
       // Calculate climit update
       const [umin, umax] = targetId === 'min' ? [value, cmax] : [cmin, value];
 
       // Update sliders if needed
-      if (umin > smin) sliderValues[channelIndex] = [umin, smax];
-      if (umax < smax) sliderValues[channelIndex] = [smin, umax];
+      if (umin > smin) contrastLimits[channelIndex] = [umin, smax];
+      if (umax < smax) contrastLimits[channelIndex] = [smin, umax];
 
       // Update channel constrast limits
       contrastLimits[channelIndex] = [umin, umax];
 
       return {
         ...prev,
-        layerProps: { ...prev.layerProps, sliderValues, contrastLimits },
+        layerProps: { ...prev.layerProps, contrastLimits, contrastLimitsRange },
       };
     });
   };
@@ -72,25 +76,25 @@ function ChannelOptions({ layerId, channelIndex }: { layerId: string; channelInd
   const handleRemove = () => {
     setLayer((prev) => {
       const { layerProps } = prev;
-      const colorValues = [...layerProps.colorValues];
-      const sliderValues = [...layerProps.sliderValues];
+      const colors = [...layerProps.colors];
       const contrastLimits = [...layerProps.contrastLimits];
-      const loaderSelection = [...layerProps.loaderSelection];
-      const channelIsOn = [...layerProps.channelIsOn];
-      colorValues.splice(channelIndex, 1);
-      sliderValues.splice(channelIndex, 1);
+      const contrastLimitsRange = [...layerProps.contrastLimitsRange];
+      const selections = [...layerProps.selections];
+      const channelsVisible = [...layerProps.channelsVisible];
+      colors.splice(channelIndex, 1);
       contrastLimits.splice(channelIndex, 1);
-      loaderSelection.splice(channelIndex, 1);
-      channelIsOn.splice(channelIndex, 1);
+      contrastLimitsRange.splice(channelIndex, 1);
+      selections.splice(channelIndex, 1);
+      channelsVisible.splice(channelIndex, 1);
       return {
         ...prev,
         layerProps: {
           ...layerProps,
-          colorValues,
-          sliderValues,
-          loaderSelection,
-          channelIsOn,
+          colors,
+          selections,
+          channelsVisible,
           contrastLimits,
+          contrastLimitsRange,
         },
       };
     });
@@ -98,19 +102,19 @@ function ChannelOptions({ layerId, channelIndex }: { layerId: string; channelInd
 
   const handleSelectionChange = (event: ChangeEvent<HTMLSelectElement>) => {
     setLayer((prev) => {
-      const loaderSelection = [...prev.layerProps.loaderSelection];
-      const channelSelection = [...loaderSelection[channelIndex]];
+      const selections = [...prev.layerProps.selections];
+      const channelSelection = [...selections[channelIndex]];
       if (Number.isInteger(channel_axis)) {
         channelSelection[channel_axis as number] = +event.target.value;
-        loaderSelection[channelIndex] = channelSelection;
+        selections[channelIndex] = channelSelection;
       }
-      return { ...prev, layerProps: { ...prev.layerProps, loaderSelection } };
+      return { ...prev, layerProps: { ...prev.layerProps, selections } };
     });
   };
 
   const open = Boolean(anchorEl);
-  const id = open ? `channel-${channelIndex}-${layerId}-options` : undefined;
-  const [min, max] = layer.layerProps.contrastLimits[channelIndex];
+  const id = open ? `channel-${channelIndex}-${sourceData.name}-options` : undefined;
+  const [min, max] = layer.layerProps.contrastLimitsRange[channelIndex];
 
   return (
     <>
@@ -153,9 +157,9 @@ function ChannelOptions({ layerId, channelIndex }: { layerId: string; channelInd
           <NativeSelect
             fullWidth
             style={{ fontSize: '0.7em' }}
-            id={`layer-${layerId}-channel-select`}
+            id={`layer-${sourceData.name}-channel-select`}
             onChange={handleSelectionChange}
-            value={layer.layerProps.loaderSelection[channelIndex][channel_axis as number]}
+            value={layer.layerProps.selections[channelIndex][channel_axis as number]}
           >
             {names.map((name, i) => (
               <option value={i} key={name}>

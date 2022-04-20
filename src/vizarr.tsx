@@ -1,17 +1,18 @@
 import React, { useEffect } from 'react';
-import { useSetRecoilState } from 'recoil';
+import { useUpdateAtom } from 'jotai/utils';
 
-import { layerIdsState, sourceInfoState, viewerViewState, loadingState } from './state';
+import { sourceInfoAtom, viewStateAtom, loadingAtom} from './state';
 import type { ImageLayerConfig } from './state';
 
 import Viewer from './components/Viewer';
 import Menu from './components/Menu';
 
+import { version } from '../package.json';
+
 function App() {
-  const setViewState = useSetRecoilState(viewerViewState);
-  const setLayerIds = useSetRecoilState(layerIdsState);
-  const setSourceInfo = useSetRecoilState(sourceInfoState);
-  const setLoading = useSetRecoilState(loadingState);
+  const setSourceInfo = useUpdateAtom(sourceInfoAtom);
+  const setViewState = useUpdateAtom(viewStateAtom);
+  const setLoading = useUpdateAtom(loadingAtom);
 
   async function addImage(config: ImageLayerConfig) {
     try {
@@ -23,9 +24,8 @@ function App() {
         if (!sourceData.name) {
           sourceData.name = `image_${Object.keys(prevSourceInfo).length}`;
         }
-        return { ...prevSourceInfo, [id]: sourceData };
+        return [...prevSourceInfo, { id, ...sourceData }];
       });
-      setLayerIds((prevIds) => [...prevIds, id]);
     } catch (e) {
       throw e;
     } finally {
@@ -59,11 +59,11 @@ function App() {
 
   useEffect(() => {
     async function initImjoy() {
-      const { default: imjoy } = await import('imjoy-rpc');
-      const api = await imjoy.setupRPC({
+      const { imjoyRPC } = await import('imjoy-rpc');
+      const api = await imjoyRPC.setupRPC({
         name: 'vizarr',
         description: 'A minimal, purely client-side program for viewing Zarr-based images with Viv & ImJoy.',
-        version: import.meta.env.SNOWPACK_PUBLIC_PACKAGE_VERSION as string,
+        version: version,
       });
       const add_image = async (props: ImageLayerConfig) => addImage(props);
       const set_view_state = async (vs: { zoom: number; target: number[] }) => setViewState(vs);
