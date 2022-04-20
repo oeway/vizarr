@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { useUpdateAtom } from 'jotai/utils';
 
-import { sourceInfoAtom, viewStateAtom, loadingAtom} from './state';
+import { sourceInfoAtom, viewStateAtom, loadingAtom } from './state';
 import type { ImageLayerConfig } from './state';
 
 import Viewer from './components/Viewer';

@@ -37,7 +37,6 @@ const useStyles = makeStyles({
   },
 });
 
-
 function getLayerSize(props: LayerState['layerProps']) {
   const { loader } = props;
   const [base, maxZoom] = Array.isArray(loader) ? [loader[0], loader.length] : [loader, 0];
@@ -79,14 +78,13 @@ function WrappedViewStateDeck({ layers }: { layers: Layer<any, any>[] }) {
         alt="logo"
       ></img>
       <CircularProgress className={classes.loadingIcon} style={{ visibility: loading ? 'visible' : 'hidden' }} />
-      {
-      typeof loading === 'string' ? <Typography
-        className={classes.loadingText}
-        variant="h6"
-      >
-        {loading}
-      </Typography> : ''
-      }
+      {typeof loading === 'string' ? (
+        <Typography className={classes.loadingText} variant="h6">
+          {loading}
+        </Typography>
+      ) : (
+        ''
+      )}
       <DeckGL
         ref={deckRef}
         layers={layers}
