@@ -40,7 +40,7 @@ function Menu() {
           style={{
             backgroundColor: 'transparent',
             padding: 0,
-            visibility: layerIds.length > 0 ? 'visible' : 'hidden',
+            visibility: sourceAtoms.length > 0 ? 'visible' : 'hidden',
           }}
           onClick={toggle}
         >

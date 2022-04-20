@@ -126,7 +126,4 @@ export const layerAtoms = atom((get) => {
   return get(waitForAll(layers));
 });
 
-export const loadingState = atom({
-  key: 'loading',
-  default: false as boolean | string,
-});
+export const loadingAtom =  atom<boolean | string>(false);
