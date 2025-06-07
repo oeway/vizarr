@@ -1,11 +1,10 @@
-import React from 'react';
-import { Grid, Divider } from '@material-ui/core';
-import { useAtomValue } from 'jotai/utils';
-import AxisSlider from './AxisSlider';
-import type { ControllerProps } from '../../state';
+import { Divider, Grid } from "@material-ui/core";
+import React from "react";
+import { useSourceData } from "../../hooks";
+import AxisSlider from "./AxisSlider";
 
-function AxisSliders({ sourceAtom, layerAtom }: ControllerProps) {
-  const sourceData = useAtomValue(sourceAtom);
+function AxisSliders() {
+  const [sourceData] = useSourceData();
   const { axis_labels, channel_axis, loader } = sourceData;
 
   const sliders = axis_labels
@@ -16,9 +15,7 @@ function AxisSliders({ sourceAtom, layerAtom }: ControllerProps) {
       if (d[2] > 1) return true; // keep if size > 1
       return false; // otherwise ignore as well
     })
-    .map(([name, i, size]) => (
-      <AxisSlider key={name} sourceAtom={sourceAtom} layerAtom={layerAtom} axisIndex={i} max={size - 1} />
-    ));
+    .map(([name, i, size]) => <AxisSlider key={name} axisIndex={i} max={size - 1} />);
 
   if (sliders.length === 0) return null;
   return (

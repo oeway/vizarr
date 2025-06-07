@@ -1,15 +1,14 @@
-import React, { useState } from 'react';
-import type { MouseEvent, ChangeEvent } from 'react';
-import { useAtom } from 'jotai';
-import { IconButton, Popover, Paper, Typography, Divider, NativeSelect } from '@material-ui/core';
-import { Add } from '@material-ui/icons';
+import { Divider, IconButton, NativeSelect, Paper, Popover, Typography } from "@material-ui/core";
+import { Add } from "@material-ui/icons";
+import React, { useState } from "react";
+import type { ChangeEvent, MouseEvent } from "react";
 
-import { calcDataRange, hexToRGB, MAX_CHANNELS } from '../../utils';
-import type { ControllerProps } from '../../state';
+import { useLayerState, useSourceData } from "../../hooks";
+import { MAX_CHANNELS, calcDataRange, hexToRGB, resolveLoaderFromLayerProps } from "../../utils";
 
-function AddChannelButton({ sourceAtom, layerAtom }: ControllerProps) {
-  const [source, setSource] = useAtom(sourceAtom);
-  const [layer, setLayer] = useAtom(layerAtom);
+function AddChannelButton() {
+  const [source, setSource] = useSourceData();
+  const [layer, setLayer] = useLayerState();
   const [anchorEl, setAnchorEl] = useState<null | Element>(null);
 
   const handleClick = (event: MouseEvent<HTMLButtonElement>) => {
@@ -33,7 +32,7 @@ function AddChannelButton({ sourceAtom, layerAtom }: ControllerProps) {
     if (source.contrast_limits[channelIndex]) {
       lim = source.contrast_limits[channelIndex] as [number, number];
     } else {
-      const { loader } = layer.layerProps;
+      const loader = resolveLoaderFromLayerProps(layer.layerProps);
       const lowres = Array.isArray(loader) ? loader[loader.length - 1] : loader;
       lim = await calcDataRange(lowres, channelSelection);
       // Update source data with newly calculated limit
@@ -73,10 +72,10 @@ function AddChannelButton({ sourceAtom, layerAtom }: ControllerProps) {
         onClick={handleClick}
         aria-describedby={id}
         style={{
-          backgroundColor: 'transparent',
+          backgroundColor: "transparent",
           padding: 0,
           zIndex: 2,
-          cursor: 'pointer',
+          cursor: "pointer",
         }}
         disabled={layer.layerProps.selections.length === MAX_CHANNELS}
       >
@@ -88,20 +87,20 @@ function AddChannelButton({ sourceAtom, layerAtom }: ControllerProps) {
         anchorEl={anchorEl}
         onClose={handleClose}
         anchorOrigin={{
-          vertical: 'bottom',
-          horizontal: 'left',
+          vertical: "bottom",
+          horizontal: "left",
         }}
         transformOrigin={{
-          vertical: 'top',
-          horizontal: 'left',
+          vertical: "top",
+          horizontal: "left",
         }}
       >
-        <Paper style={{ padding: '0px 4px', marginBottom: 4, width: '8em' }}>
+        <Paper style={{ padding: "0px 4px", marginBottom: 4, width: "8em" }}>
           <Typography variant="caption">selection: </Typography>
           <Divider />
           <NativeSelect
             fullWidth
-            style={{ fontSize: '0.7em' }}
+            style={{ fontSize: "0.7em" }}
             id={`layer-${source.id}-channel-select`}
             onChange={handleChange}
           >

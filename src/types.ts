@@ -1,5 +1,5 @@
-declare module Ome {
-  type Version = '0.1';
+declare namespace Ome {
+  type Version = "0.1";
 
   interface Channel {
     active: boolean;
@@ -24,7 +24,7 @@ declare module Ome {
     rdefs: {
       defaultT?: number;
       defaultZ?: number;
-      model: 'color' | 'greyscale';
+      model: "color" | "greyscale";
     };
   }
 
@@ -33,10 +33,29 @@ declare module Ome {
     type?: string;
   }
 
+  type CoordinateTransformation =
+    | {
+        type: "scale";
+        scale: Array<number>;
+      }
+    | {
+        type: "translation";
+        translation: Array<number>;
+      };
+
+  interface Dataset {
+    path: string;
+    coordinateTransformations?: Array<CoordinateTransformation>;
+  }
+
   interface Multiscale {
-    datasets: { path: string }[];
+    datasets: Array<Dataset>;
     version?: string;
     axes?: string[] | Axis[];
+  }
+
+  interface Bioformats2rawlayout {
+    "bioformats2raw.layout": 3;
   }
 
   interface Acquisition {
@@ -66,9 +85,27 @@ declare module Ome {
     version: Version;
   }
 
+  interface ImageLabel {
+    version: Version;
+    colors?: Array<{
+      "label-value": number;
+      rgba: [r: number, g: number, b: number, a: number];
+    }>;
+    properties?: Array<{
+      "label-value": number;
+      "omero:roiId": number;
+      "omero:shapeId": number;
+    }>;
+    /** Location of source image */
+    source: {
+      image: string;
+    };
+  }
+
   type Attrs =
     | { multiscales: Multiscale[] }
     | { omero: Omero; multiscales: Multiscale[] }
     | { plate: Plate }
-    | { well: Well };
+    | { well: Well }
+    | { "image-label": ImageLabel; multiscales: Multiscale[] };
 }

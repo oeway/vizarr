@@ -1,25 +1,24 @@
-import React from 'react';
-import { useAtomValue } from 'jotai/utils';
-import MuiAccordion from '@material-ui/core/Accordion';
-import { withStyles } from '@material-ui/styles';
+import MuiAccordion from "@material-ui/core/Accordion";
+import { withStyles } from "@material-ui/styles";
+import React from "react";
 
-import Header from './Header';
-import Content from './Content';
-import type { ControllerProps } from '../../state';
-import { layerFamilyAtom } from '../../state';
+import { LayerStateContext, useSourceData } from "../../hooks";
+import { layerFamilyAtom } from "../../state";
+import Content from "./Content";
+import Header from "./Header";
 
 const Accordion = withStyles({
   root: {
-    borderBottom: '1px solid rgba(150, 150, 150, .2)',
+    borderBottom: "1px solid rgba(150, 150, 150, .2)",
     width: 200,
-    boxshadow: 'none',
-    '&:not(:last-child)': {
+    boxshadow: "none",
+    "&:not(:last-child)": {
       borderBottom: 0,
     },
-    '&:before': {
-      display: 'none',
+    "&:before": {
+      display: "none",
     },
-    '&$expanded': {
+    "&$expanded": {
       margin: 0,
       padding: 0,
     },
@@ -29,15 +28,16 @@ const Accordion = withStyles({
   },
 })(MuiAccordion);
 
-function LayerController({ sourceAtom }: Omit<ControllerProps, 'layerAtom'>) {
-  const sourceInfo = useAtomValue(sourceAtom);
+function LayerController() {
+  const [sourceInfo] = useSourceData();
   const layerAtom = layerFamilyAtom(sourceInfo);
-  const { name = '' } = sourceInfo;
   return (
-    <Accordion defaultExpanded>
-      <Header sourceAtom={sourceAtom} layerAtom={layerAtom} name={name} />
-      <Content sourceAtom={sourceAtom} layerAtom={layerAtom} />
-    </Accordion>
+    <LayerStateContext.Provider value={layerAtom}>
+      <Accordion defaultExpanded>
+        <Header name={sourceInfo.name ?? ""} />
+        <Content />
+      </Accordion>
+    </LayerStateContext.Provider>
   );
 }
 

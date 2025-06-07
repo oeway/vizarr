@@ -1,11 +1,10 @@
-import React from 'react';
-import { Grid, NativeSelect } from '@material-ui/core';
-import { useAtomValue } from 'jotai/utils';
-import type { ChangeEvent } from 'react';
-import type { ControllerProps } from '../../state';
+import { Grid, NativeSelect } from "@material-ui/core";
+import React from "react";
+import type { ChangeEvent } from "react";
+import { useSourceData } from "../../hooks";
 
-function AcquisitionController({ sourceAtom }: ControllerProps) {
-  const sourceData = useAtomValue(sourceAtom);
+function AcquisitionController() {
+  const [sourceData] = useSourceData();
   const { acquisitionId, acquisitions } = sourceData;
 
   if (!acquisitions) {
@@ -15,10 +14,10 @@ function AcquisitionController({ sourceAtom }: ControllerProps) {
   const handleSelectionChange = (event: ChangeEvent<HTMLSelectElement>) => {
     let value = event.target.value;
     const url = new URL(window.location.href);
-    if (value === '-1') {
-      url.searchParams.delete('acquisition');
+    if (value === "-1") {
+      url.searchParams.delete("acquisition");
     } else {
-      url.searchParams.set('acquisition', value);
+      url.searchParams.set("acquisition", value);
     }
     window.location.href = decodeURIComponent(url.href);
   };
@@ -26,7 +25,7 @@ function AcquisitionController({ sourceAtom }: ControllerProps) {
   return (
     <>
       <Grid>
-        <NativeSelect fullWidth style={{ fontSize: '0.7em' }} onChange={handleSelectionChange} value={acquisitionId}>
+        <NativeSelect fullWidth style={{ fontSize: "0.7em" }} onChange={handleSelectionChange} value={acquisitionId}>
           <option value="-1" key="-1">
             Filter by Acquisition
           </option>

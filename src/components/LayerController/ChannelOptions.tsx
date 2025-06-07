@@ -1,17 +1,15 @@
-import React, { useState } from 'react';
-import type { MouseEvent, ChangeEvent } from 'react';
-import { useAtom } from 'jotai';
-import { useAtomValue } from 'jotai/utils';
-import { IconButton, Popover, Paper, Typography, Divider, Input, NativeSelect } from '@material-ui/core';
-import { withStyles } from '@material-ui/styles';
-import { MoreHoriz, Remove } from '@material-ui/icons';
-import type { ControllerProps } from '../../state';
-import ColorPalette from './ColorPalette';
+import { Divider, IconButton, Input, NativeSelect, Paper, Popover, Typography } from "@material-ui/core";
+import { MoreHoriz, Remove } from "@material-ui/icons";
+import { withStyles } from "@material-ui/styles";
+import React, { useState } from "react";
+import type { ChangeEvent, MouseEvent } from "react";
+import { useLayerState, useSourceData } from "../../hooks";
+import ColorPalette from "./ColorPalette";
 
 const DenseInput = withStyles({
   root: {
-    width: '5.5em',
-    fontSize: '0.7em',
+    width: "5.5em",
+    fontSize: "0.7em",
   },
 })(Input);
 
@@ -19,9 +17,9 @@ interface Props {
   channelIndex: number;
 }
 
-function ChannelOptions({ sourceAtom, layerAtom, channelIndex }: ControllerProps<Props>) {
-  const sourceData = useAtomValue(sourceAtom);
-  const [layer, setLayer] = useAtom(layerAtom);
+function ChannelOptions({ channelIndex }: Props) {
+  const [sourceData] = useSourceData();
+  const [layer, setLayer] = useLayerState();
   const [anchorEl, setAnchorEl] = useState<null | Element>(null);
   const { channel_axis, names } = sourceData;
 
@@ -57,14 +55,14 @@ function ChannelOptions({ sourceAtom, layerAtom, channelIndex }: ControllerProps
       const [smin, smax] = contrastLimits[channelIndex];
 
       // Calculate climit update
-      const [umin, umax] = targetId === 'min' ? [value, cmax] : [cmin, value];
+      const [umin, umax] = targetId === "min" ? [value, cmax] : [cmin, value];
 
       // Update sliders if needed
       if (umin > smin) contrastLimits[channelIndex] = [umin, smax];
       if (umax < smax) contrastLimits[channelIndex] = [smin, umax];
 
-      // Update channel constrast limits
-      contrastLimits[channelIndex] = [umin, umax];
+      // Update channel constrast limits range
+      contrastLimitsRange[channelIndex] = [umin, umax];
 
       return {
         ...prev,
@@ -122,10 +120,10 @@ function ChannelOptions({ sourceAtom, layerAtom, channelIndex }: ControllerProps
         onClick={handleClick}
         aria-describedby={id}
         style={{
-          backgroundColor: 'transparent',
+          backgroundColor: "transparent",
           padding: 0,
           zIndex: 2,
-          cursor: 'pointer',
+          cursor: "pointer",
         }}
       >
         <MoreHoriz />
@@ -136,16 +134,16 @@ function ChannelOptions({ sourceAtom, layerAtom, channelIndex }: ControllerProps
         anchorEl={anchorEl}
         onClose={handleClose}
         anchorOrigin={{
-          vertical: 'bottom',
-          horizontal: 'left',
+          vertical: "bottom",
+          horizontal: "left",
         }}
         transformOrigin={{
-          vertical: 'top',
-          horizontal: 'left',
+          vertical: "top",
+          horizontal: "left",
         }}
       >
-        <Paper style={{ padding: '0px 4px', marginBottom: 4 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+        <Paper style={{ padding: "0px 4px", marginBottom: 4 }}>
+          <div style={{ display: "flex", justifyContent: "space-between" }}>
             <Typography variant="caption">remove:</Typography>
             <IconButton onClick={handleRemove}>
               <Remove />
@@ -156,7 +154,7 @@ function ChannelOptions({ sourceAtom, layerAtom, channelIndex }: ControllerProps
           <Divider />
           <NativeSelect
             fullWidth
-            style={{ fontSize: '0.7em' }}
+            style={{ fontSize: "0.7em" }}
             id={`layer-${sourceData.name}-channel-select`}
             onChange={handleSelectionChange}
             value={layer.layerProps.selections[channelIndex][channel_axis as number]}
@@ -175,7 +173,7 @@ function ChannelOptions({ sourceAtom, layerAtom, channelIndex }: ControllerProps
           <Divider />
           <Typography variant="caption">color:</Typography>
           <Divider />
-          <div style={{ display: 'flex', justifyContent: 'center' }}>
+          <div style={{ display: "flex", justifyContent: "center" }}>
             <ColorPalette handleChange={handleColorChange} />
           </div>
         </Paper>

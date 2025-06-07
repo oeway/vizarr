@@ -1,21 +1,14 @@
 {
-  "include": ["src", "types"],
   "compilerOptions": {
     "module": "esnext",
     "target": "esnext",
-    "moduleResolution": "node",
-    "jsx": "preserve",
-    "baseUrl": "./",
+    "moduleResolution": "bundler",
     "noEmit": true,
     "strict": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "resolveJsonModule": true,
-    "allowSyntheticDefaultImports": true,
-    "importsNotUsedAsValues": "error",
-    "paths": {
-      "zarr": ["node_modules/zarr"],
-      "*": ["*", "node_modules/@danmarshall/deckgl-typings/*"]
-    }
+    "verbatimModuleSyntax": true,
+    "jsx": "preserve",
+    "types": ["vite/client"]
   }
 }
