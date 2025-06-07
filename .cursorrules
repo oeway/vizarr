@@ -1,0 +1,164 @@
+# Enhanced Vizarr Image Visualization Tool
+
+## Project Goal
+
+Create an enhanced image visualization tool based on [vizarr](https://github.com/hms-dbmi/vizarr) with comprehensive image annotation capabilities. The goal is to provide a layered API similar to [Kaibu](https://kaibu.org) but built on vizarr's foundation for better performance and modern web standards.
+
+## Core Vision
+
+Build a powerful, web-based image visualization and annotation platform that combines:
+- **Vizarr's efficient multi-dimensional image rendering** - Leveraging zarr format support and WebGL-based visualization
+- **Comprehensive annotation tools** - Drawing, labeling, and managing annotations on images
+- **Layered API architecture** - Clean, programmatic interface for building custom applications
+- **Plugin system** - Extensible architecture for domain-specific tools
+
+## Target Features (Roadmap)
+
+### Phase 1: Core Visualization Enhancement
+- [ ] Extend vizarr's basic image viewing capabilities
+- [ ] Implement layer management system
+- [ ] Add basic UI controls and navigation
+- [ ] Support for multiple image formats and dimensions
+
+### Phase 2: Annotation System
+- [ ] **Shape annotation tools** (similar to Kaibu's `add_shapes`)
+  - Polygons, rectangles, circles, freehand drawing
+  - Point annotations (`add_points`)
+  - Line/path annotations
+- [ ] **Annotation properties**
+  - Customizable colors, line widths, fill styles
+  - Labels and metadata attachment
+  - Tagging system for categorization
+- [ ] **Interactive editing**
+  - Select, move, resize, delete annotations
+  - Undo/redo functionality
+  - Keyboard shortcuts
+
+### Phase 3: Widget and Control System
+- [ ] **Control widgets** - Buttons, dropdowns, sliders for custom interactions
+- [ ] **Form widgets** - Data collection and annotation metadata input
+- [ ] **Tree widgets** - Hierarchical data navigation (samples, datasets, etc.)
+- [ ] **Chart widgets** - Data visualization with Vega/Vega-Lite integration
+- [ ] **Widget docking system** - Flexible UI layout management
+
+### Phase 4: Advanced Features
+- [ ] **Multi-dimensional navigation** - Z-stack, time series, multi-channel support
+- [ ] **Collaboration tools** - Real-time annotation sharing
+- [ ] **Export/Import** - Annotation data in standard formats (GeoJSON, etc.)
+- [ ] **Integration APIs** - ImJoy plugin support, Jupyter widget compatibility
+
+## API Design Principles
+
+### Layered Architecture
+Follow Kaibu's successful pattern of providing multiple API layers:
+
+```javascript
+// Core image viewing
+await viewer.view_image(image, options)
+
+// Annotation management  
+await viewer.add_shapes(shapes, options)
+await viewer.add_points(points, options)
+
+// Widget system
+await viewer.add_widget({type: "control", elements: [...]})
+
+// Layer management
+const layer = await viewer.get_layer(name)
+await viewer.remove_layer(id)
+```
+
+### Key API Categories
+1. **Image Management** - Loading, displaying, and managing image layers
+2. **Annotation Tools** - Creating, editing, and managing annotations
+3. **Widget System** - UI components for custom interactions
+4. **Layer Control** - Managing visualization layers and properties
+5. **Event System** - Callbacks and interaction handling
+
+## Technical Approach
+
+### Built on Vizarr Foundation
+- Leverage vizarr's efficient zarr-based image loading
+- Extend existing WebGL rendering pipeline
+- Maintain compatibility with existing vizarr ecosystem
+
+### Modern Web Technologies
+- **Framework**: React/Vue.js for UI components
+- **Rendering**: WebGL/WebGPU for performance
+- **State Management**: Redux/Vuex for application state
+- **Styling**: Modern CSS frameworks for responsive design
+
+### Annotation System Implementation
+For comprehensive annotation capabilities, this project will leverage **`@deck.gl-community/editable-layers`** - a community-maintained fork of the original nebula.gl project.
+
+#### Background on nebula.gl Migration
+- **Historical Context**: The original [nebula.gl](https://nebula.gl) was a dedicated project for geospatial editing with deck.gl, providing powerful annotation and editing capabilities
+- **Migration to Community**: According to [GitHub discussions](https://visgl.github.io/deck.gl-community/docs/modules/editable-layers), nebula.gl has been migrated to `@deck.gl-community/editable-layers` as part of deck.gl v9 release
+- **Current Status**: The original nebula.gl repository lacked maintainers for several years and no longer accepts external contributions
+- **Community Maintenance**: The new `@deck.gl-community/editable-layers` provides the same core functionality but with simplified module structure
+
+#### Implementation Strategy
+- **Primary Package**: Use `@deck.gl-community/editable-layers` for all annotation functionality
+- **Reference Examples**: While examples may still reference the old nebula.gl syntax, adapt imports and usage to the new package structure:
+  ```javascript
+  // Old nebula.gl imports
+  import { EditableGeoJsonLayer } from '@nebula.gl/layers';
+  
+  // New deck.gl-community imports  
+  import { EditableGeoJsonLayer } from '@deck.gl-community/editable-layers';
+  ```
+- **Feature Compatibility**: The community version maintains API compatibility while providing updated deck.gl v9 support
+- **Documentation**: Leverage existing nebula.gl documentation and examples, adapting package imports as needed
+
+#### Key Capabilities from editable-layers
+- **Ultra-performant editing** - 60fps editing with 100K+ features
+- **Full 3D support** - WebGL z-buffer for proper occlusion
+- **Touch screen support** - Complete event handling system
+- **GeoJSON compatibility** - Handle complex geospatial data structures
+- **Seamless deck.gl integration** - Built specifically for the deck.gl ecosystem
+
+### Development Guidelines
+
+#### Code Organization
+- **Modular architecture** - Separate concerns (rendering, annotation, UI)
+- **Plugin-based extensions** - Allow easy feature additions
+- **Type safety** - Use TypeScript for better development experience
+- **Testing** - Comprehensive unit and integration tests
+
+#### API Consistency
+- Follow Kaibu's naming conventions where applicable
+- Maintain backward compatibility during development
+- Provide clear migration paths from other tools
+- Document all public APIs comprehensively
+
+#### Performance Considerations
+- Optimize for large, multi-dimensional images
+- Implement efficient annotation rendering
+- Use web workers for heavy computations
+- Minimize memory footprint
+
+## Development Context
+
+### Reference Implementation
+The Kaibu API (see `docs/kaibu-docs.md`) serves as the primary reference for:
+- API structure and naming conventions
+- Feature completeness and user experience
+- Integration patterns with ImJoy and Jupyter
+
+### Target Users
+- **Researchers** - Biological/medical image analysis
+- **Developers** - Building custom visualization applications  
+- **Data Scientists** - Interactive data exploration workflows
+- **Collaborators** - Teams working on shared datasets
+
+## Success Metrics
+
+- **API Completeness** - Feature parity with Kaibu's core functionality
+- **Performance** - Smooth interaction with large multi-dimensional images
+- **Usability** - Intuitive interface for both programmatic and interactive use
+- **Extensibility** - Easy plugin development and customization
+- **Adoption** - Active use in research and development communities
+
+---
+
+*This project aims to advance the state of web-based image visualization by combining vizarr's technical excellence with comprehensive annotation capabilities, creating a powerful platform for scientific image analysis and collaboration.* 

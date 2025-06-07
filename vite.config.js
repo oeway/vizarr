@@ -18,5 +18,11 @@ export default defineConfig({
       geotiff: resolve(__dirname, 'src/empty:geotiff.js'),
     },
   },
-  server: { open: `?source=${source}` },
+  server: { 
+    port: 3030,
+    strictPort: true,
+    open: process.env.NODE_ENV !== 'test' ? `?source=${source}` : false,
+    host: true,
+    cors: true,
+  },
 });
