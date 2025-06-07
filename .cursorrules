@@ -137,6 +137,13 @@ For comprehensive annotation capabilities, this project will leverage **`@deck.g
 - Use web workers for heavy computations
 - Minimize memory footprint
 
+#### Testing
+- Comprehensive unit and integration tests
+- **Use real data sources** - Test with actual zarr files (e.g., https://uk1s3.embassy.ebi.ac.uk/idr/zarr/v0.1/6001253.zarr)
+- **Avoid mocking core functionality** - Mocks should be minimal and only for external services that are unreliable or slow
+- **Integration over isolation** - Tests should validate real system behavior, not mocked interfaces
+- Focus on end-to-end functionality validation
+
 ## Development Context
 
 ### Reference Implementation

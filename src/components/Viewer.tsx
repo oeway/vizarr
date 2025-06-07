@@ -1,6 +1,6 @@
 import DeckGL from "deck.gl";
 import { OrthographicView } from "deck.gl";
-import { useAtomValue } from "jotai";
+import { useAtomValue } from "jotai/utils";
 import * as React from "react";
 import { useViewState } from "../hooks";
 import { layerAtoms } from "../state";

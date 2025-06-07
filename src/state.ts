@@ -4,7 +4,6 @@ import { RedirectError, rethrowUnless } from "./utils";
 
 import type { Layer } from "deck.gl";
 import type { PrimitiveAtom } from "jotai";
-import type { AtomFamily } from "jotai/vanilla/utils/atomFamily";
 import type { Matrix4 } from "math.gl";
 import type * as zarr from "zarrita";
 import type { ZarrPixelSource } from "./ZarrPixelSource";
@@ -140,7 +139,7 @@ export const addImageAtom = atom(null, async (get, set, config: ImageLayerConfig
 
 export const sourceInfoAtomAtoms = splitAtom(sourceInfoAtom);
 
-export const layerFamilyAtom: AtomFamily<WithId<SourceData>, PrimitiveAtom<WithId<LayerState>>> = atomFamily(
+export const layerFamilyAtom = atomFamily(
   (param: WithId<SourceData>) => atom({ ...initLayerStateFromSource(param), id: param.id }),
   (a, b) => a.id === b.id,
 );
@@ -187,13 +186,29 @@ const imageLabelsIstanceFamily = atomFamily((a: Atom<LayerState>) =>
 );
 
 export const layerAtoms = atom((get) => {
+  const sourceAtoms = get(sourceInfoAtomAtoms);
+  
+  // Handle empty case - return empty array if no sources
+  if (sourceAtoms.length === 0) {
+    return [];
+  }
+  
   const layerAtoms = [];
-  for (const sourceAtom of get(sourceInfoAtomAtoms)) {
-    const layerStateAtom = layerFamilyAtom(get(sourceAtom));
+  for (const sourceAtom of sourceAtoms) {
+    const sourceData = get(sourceAtom);
+    const layerStateAtom = layerFamilyAtom(sourceData);
     layerAtoms.push(layerInstanceFamily(layerStateAtom));
     layerAtoms.push(imageLabelsIstanceFamily(layerStateAtom));
   }
-  return get(waitForAll(layerAtoms)).flat();
+  
+  // Filter out any null/undefined atoms before passing to waitForAll
+  const validAtoms = layerAtoms.filter(atom => atom != null);
+  
+  if (validAtoms.length === 0) {
+    return [];
+  }
+  
+  return get(waitForAll(validAtoms)).flat();
 });
 
 export const loadingAtom = atom<boolean | string>(false);

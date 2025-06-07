@@ -1,7 +1,7 @@
 import { Link, Typography } from "@material-ui/core";
 import { ThemeProvider, makeStyles } from "@material-ui/styles";
 import { type PrimitiveAtom, Provider, atom } from "jotai";
-import { useAtomValue, useSetAtom } from "jotai";
+import { useAtomValue, useUpdateAtom } from "jotai/utils";
 import * as React from "react";
 import ReactDOM from "react-dom/client";
 
@@ -71,8 +71,8 @@ export function createViewer(element: HTMLElement, options: { menuOpen?: boolean
   function App() {
     const sourceError = useAtomValue(sourceErrorAtom);
     const redirectObj = useAtomValue(redirectObjAtom);
-    const addImage = useSetAtom(addImageAtom);
-    const setViewState = useSetAtom(viewStateAtomWithEffect);
+    const addImage = useUpdateAtom(addImageAtom);
+    const setViewState = useUpdateAtom(viewStateAtomWithEffect);
     React.useImperativeHandle(
       ref,
       () => ({

@@ -1,7 +1,7 @@
 import { Grid, IconButton } from "@material-ui/core";
 import { Add, Remove } from "@material-ui/icons";
 import { makeStyles } from "@material-ui/styles";
-import { useAtomValue } from "jotai";
+import { useAtomValue } from "jotai/utils";
 import React, { useReducer } from "react";
 
 import { SourceDataContext } from "../hooks";
