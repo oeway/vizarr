@@ -1,5 +1,5 @@
-import { AccordionSummary, Typography } from "@material-ui/core";
-import { withStyles } from "@material-ui/styles";
+import { AccordionSummary, Typography } from "@mui/material";
+import { withStyles } from "@mui/styles";
 import React from "react";
 import LayerVisibilityButton from "./LayerVisibilityButton";
 
@@ -10,13 +10,13 @@ const DenseAccordionSummary = withStyles({
     borderBottom: "1px solid rgba(150, 150, 150, .125)",
     backgroundColor: "rgba(150, 150, 150, 0.25)",
     display: "block",
-    padding: "0 3px",
-    height: 27,
-    minHeight: 27,
+    padding: "0 8px",
+    height: 32,
+    minHeight: 32,
     overflow: "hidden",
     transition: "none",
     "&$expanded": {
-      minHeight: 27,
+      minHeight: 32,
     },
   },
   content: {

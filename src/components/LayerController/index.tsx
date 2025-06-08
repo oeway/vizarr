@@ -1,5 +1,5 @@
-import MuiAccordion from "@material-ui/core/Accordion";
-import { withStyles } from "@material-ui/styles";
+import MuiAccordion from "@mui/material/Accordion";
+import { withStyles } from "@mui/styles";
 import React from "react";
 
 import { LayerStateContext, useSourceData } from "../../hooks";
@@ -10,7 +10,7 @@ import Header from "./Header";
 const Accordion = withStyles({
   root: {
     borderBottom: "1px solid rgba(150, 150, 150, .2)",
-    width: 200,
+    width: 240,
     boxshadow: "none",
     "&:not(:last-child)": {
       borderBottom: 0,

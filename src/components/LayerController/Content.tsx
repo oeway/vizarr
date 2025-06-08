@@ -1,5 +1,5 @@
-import { AccordionDetails, Divider, Grid, Typography } from "@material-ui/core";
-import { withStyles } from "@material-ui/styles";
+import { AccordionDetails, Divider, Grid, Typography } from "@mui/material";
+import { withStyles } from "@mui/styles";
 import React from "react";
 
 import AcquisitionController from "./AcquisitionController";
@@ -14,7 +14,7 @@ import { range } from "../../utils";
 
 const Details = withStyles({
   root: {
-    padding: "2px 5px",
+    padding: "8px 10px",
     borderLeft: "1px solid rgba(150, 150, 150, .2)",
     borderRight: "1px solid rgba(150, 150, 150, .2)",
   },
@@ -26,9 +26,11 @@ function Content() {
   return (
     <Details>
       <Grid container direction="column">
-        <AcquisitionController />
-        <Grid>
-          <Grid container justifyContent="space-between">
+        <Grid item>
+          <AcquisitionController />
+        </Grid>
+        <Grid item>
+          <Grid container justifyContent="space-between" alignItems="center">
             <Grid item xs={3}>
               <Typography variant="caption">opacity:</Typography>
             </Grid>
@@ -37,28 +39,38 @@ function Content() {
             </Grid>
           </Grid>
         </Grid>
-        <AxisSliders />
-        <Grid container justifyContent="space-between">
-          <Grid item xs={3}>
-            <Typography variant="caption">channels:</Typography>
-          </Grid>
-          <Grid item xs={1}>
-            <AddChannelButton />
+        <Grid item>
+          <AxisSliders />
+        </Grid>
+        <Grid item>
+          <Grid container justifyContent="space-between" alignItems="center">
+            <Grid item xs={3}>
+              <Typography variant="caption">channels:</Typography>
+            </Grid>
+            <Grid item xs={1}>
+              <AddChannelButton />
+            </Grid>
           </Grid>
         </Grid>
-        <Divider />
-        <Grid>
+        <Grid item>
+          <Divider />
+        </Grid>
+        <Grid item>
           {range(nChannels).map((i) => (
             <ChannelController channelIndex={i} key={i} />
           ))}
         </Grid>
         {layer.labels?.length && (
           <>
-            <Grid container justifyContent="space-between">
-              <Typography variant="caption">labels:</Typography>
+            <Grid item>
+              <Grid container justifyContent="space-between">
+                <Typography variant="caption">labels:</Typography>
+              </Grid>
             </Grid>
-            <Divider />
-            <Grid>
+            <Grid item>
+              <Divider />
+            </Grid>
+            <Grid item>
               {layer.labels.map((label, i) => (
                 <Labels labelIndex={i} key={label.layerProps.id} />
               ))}

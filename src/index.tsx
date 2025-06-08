@@ -1,5 +1,6 @@
-import { Link, Typography } from "@material-ui/core";
-import { ThemeProvider, makeStyles } from "@material-ui/styles";
+import { Link, Typography } from "@mui/material";
+import { ThemeProvider } from "@mui/material/styles";
+import { makeStyles } from "@mui/styles";
 import { type PrimitiveAtom, Provider, atom } from "jotai";
 import { useAtomValue, useUpdateAtom } from "jotai/utils";
 import * as React from "react";

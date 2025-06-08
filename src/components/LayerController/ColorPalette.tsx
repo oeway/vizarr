@@ -1,6 +1,6 @@
-import { IconButton } from "@material-ui/core";
-import { Lens } from "@material-ui/icons";
-import { makeStyles } from "@material-ui/styles";
+import { IconButton } from "@mui/material";
+import { Lens } from "@mui/icons-material";
+import { makeStyles } from "@mui/styles";
 import React from "react";
 import { COLORS, hexToRGB } from "../../utils";
 

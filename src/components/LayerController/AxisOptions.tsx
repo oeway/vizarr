@@ -1,6 +1,6 @@
-import { Divider, IconButton, Input, Paper, Popover, Typography } from "@material-ui/core";
-import { MoreHoriz } from "@material-ui/icons";
-import { withStyles } from "@material-ui/styles";
+import { Divider, IconButton, Input, Paper, Popover, Typography } from "@mui/material";
+import { MoreHoriz } from "@mui/icons-material";
+import { withStyles } from "@mui/styles";
 import React, { useState } from "react";
 import type { ChangeEvent, MouseEvent } from "react";
 import { useLayerState, useSourceData } from "../../hooks";

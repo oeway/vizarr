@@ -1,7 +1,7 @@
-import { Grid, IconButton, Slider, Typography } from "@material-ui/core";
-import { RadioButtonChecked, RadioButtonUnchecked } from "@material-ui/icons";
+import { Grid, IconButton, Slider, Typography } from "@mui/material";
+import { RadioButtonChecked, RadioButtonUnchecked } from "@mui/icons-material";
 import React from "react";
-import type { ChangeEvent } from "react";
+
 import { useLayerState, useSourceData } from "../../hooks";
 import ChannelOptions from "./ChannelOptions";
 
@@ -9,7 +9,7 @@ function ChannelController({ channelIndex }: { channelIndex: number }) {
   const [sourceData] = useSourceData();
   const [layer, setLayer] = useLayerState();
 
-  const handleContrastChange = (_: ChangeEvent<unknown>, v: number | number[]) => {
+  const handleContrastChange = (_: Event, v: number | number[]) => {
     setLayer((prev) => {
       const contrastLimits = [...prev.layerProps.contrastLimits];
       contrastLimits[channelIndex] = v as [number, number];

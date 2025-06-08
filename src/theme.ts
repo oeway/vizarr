@@ -1,69 +1,93 @@
-import grey from "@material-ui/core/colors/grey";
-import { createTheme } from "@material-ui/core/styles";
+import { grey } from "@mui/material/colors";
+import { createTheme } from "@mui/material/styles";
 
 export default createTheme({
   palette: {
-    type: "dark",
+    mode: "dark",
     primary: grey,
     secondary: grey,
   },
-  props: {
+  components: {
     MuiButton: {
-      size: "small",
+      defaultProps: {
+        size: "small",
+      },
     },
     MuiButtonBase: {
-      disableRipple: true,
+      defaultProps: {
+        disableRipple: true,
+      },
     },
     MuiFilledInput: {
-      margin: "dense",
+      defaultProps: {
+        margin: "dense",
+      },
     },
     MuiFormControl: {
-      margin: "dense",
+      defaultProps: {
+        margin: "dense",
+      },
     },
     MuiFormHelperText: {
-      margin: "dense",
+      defaultProps: {
+        margin: "dense",
+      },
     },
     MuiIconButton: {
-      size: "small",
+      defaultProps: {
+        size: "small",
+      },
     },
     MuiInputBase: {
-      margin: "dense",
+      defaultProps: {
+        margin: "dense",
+      },
     },
     MuiInputLabel: {
-      margin: "dense",
+      defaultProps: {
+        margin: "dense",
+      },
     },
     MuiOutlinedInput: {
-      margin: "dense",
+      defaultProps: {
+        margin: "dense",
+      },
     },
-  },
-  overrides: {
     MuiSlider: {
-      thumb: {
-        "&:focus, &:hover": {
-          boxShadow: "none",
+      styleOverrides: {
+        thumb: {
+          "&:focus, &:hover": {
+            boxShadow: "none",
+          },
+          height: 11,
+          width: 5,
+          borderRadius: "15%",
+          marginLeft: -1,
         },
-        height: 11,
-        width: 5,
-        borderRadius: "15%",
-        marginLeft: -1,
       },
     },
     MuiInput: {
-      underline: {
-        "&&&&:hover:before": {
-          borderBottom: "1px solid #fff",
+      styleOverrides: {
+        underline: {
+          "&&&&:hover:before": {
+            borderBottom: "1px solid #fff",
+          },
         },
       },
     },
     MuiPaper: {
-      root: {
-        backgroundColor: "rgba(0, 0, 0, 0.8)",
+      styleOverrides: {
+        root: {
+          backgroundColor: "rgba(0, 0, 0, 0.8)",
+        },
       },
     },
     MuiSvgIcon: {
-      root: {
-        width: "0.7em",
-        height: "0.7em",
+      styleOverrides: {
+        root: {
+          width: "0.7em",
+          height: "0.7em",
+        },
       },
     },
   },
