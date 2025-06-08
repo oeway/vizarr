@@ -8,13 +8,16 @@ async function main() {
   const viewer = await vizarr.createViewer(document.querySelector("#root")!);
   const url = new URL(window.location.href);
 
-  // Initialize HyphaCore integration for standalone app functionality
-  try {
-    console.log("Connecting to Hypha Core...");
-    // @ts-expect-error - TODO: fix this
-    const api = await hyphaWebsocketClient.setupLocalClient({
-      enable_execution: false,
-    });
+  // Initialize HyphaCore integration only when running in an iframe
+  const isInIframe = window.self !== window.top;
+  
+  if (isInIframe) {
+    try {
+      console.log("Running in iframe - connecting to Hypha Core...");
+      // @ts-expect-error - TODO: fix this
+      const api = await hyphaWebsocketClient.setupLocalClient({
+        enable_execution: false,
+      });
     console.log("✅ Connected to Hypha Core successfully", api);
 
     // Export viewer services to make them available via window proxy
@@ -116,12 +119,15 @@ async function main() {
 
     console.log("✅ Vizarr services exported to Hypha Core");
     
-    // Store API reference globally for debugging
-    (window as any).hyphaApi = api;
-    
-  } catch (error) {
-    console.warn("⚠️ Hypha Core connection failed - falling back to standalone mode:", error);
-    // Continue with normal operation even if HyphaCore connection fails
+      // Store API reference globally for debugging
+      (window as any).hyphaApi = api;
+      
+    } catch (error) {
+      console.warn("⚠️ Hypha Core connection failed - falling back to standalone mode:", error);
+      // Continue with normal operation even if HyphaCore connection fails
+    }
+  } else {
+    console.log("🏠 Running in standalone mode - Hypha Core connection disabled");
   }
 
   // Handle URL parameters for direct image loading (backward compatibility)
