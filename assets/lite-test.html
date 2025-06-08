@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Vizarr ImJoy API Integration Test</title>
+    
+    <script src="https://rawcdn.githack.com/nextapps-de/winbox/0.2.82/dist/winbox.bundle.min.js"></script>
+    <script type="module">
+      // Clean ImJoy API integration using HyphaCore's native window management
+      window.initPromise = (async () => {
+        try {
+          console.log("Starting HyphaCore initialization...");
+          
+          // Import HyphaCore from CDN
+          const { HyphaCore } = await import("https://cdn.jsdelivr.net/npm/hypha-core@0.20.55/dist/hypha-core.mjs");
+          console.log("HyphaCore imported successfully");
+          
+          const hyphaCore = new HyphaCore();
+          console.log("HyphaCore instance created");
+
+          // Setup WinBox window management
+          hyphaCore.on("add_window", (config) => {
+            console.log("Creating window:", config);
+            
+            const wb = new WinBox(config.name || config.src.slice(0, 128), {
+              background: "#448aff",
+              width: 800,
+              height: 600,
+              x: "center",
+              y: "center",
+              onclose: () => {
+                // Clean up window reference when closed
+                if (window.testWindows && window.testWindows[config.window_id]) {
+                  delete window.testWindows[config.window_id];
+                }
+                log(`Window ${config.window_id} closed`);
+              }
+            });
+            
+            wb.body.innerHTML = `<iframe src="${config.src}" id="${config.window_id}" style="width: 100%; height: 100%; border: none;"></iframe>`;
+            
+            // Store window reference for tests
+            if (!window.testWindows) window.testWindows = {};
+            window.testWindows[config.window_id] = { wb, iframe: wb.body.querySelector('iframe') };
+            
+            console.log(`Window created with ID: ${config.window_id}`);
+            log(`✅ Window "${config.name}" opened successfully`, "success");
+          });
+          
+          // Expose hyphaCore globally
+          window.hyphaCore = hyphaCore;
+          
+          console.log("Starting HyphaCore...");
+          const api =await hyphaCore.start();
+          console.log("HyphaCore started successfully");
+          
+          // Expose API
+          window.api = api;
+          console.log("API exposed:", api);
+          
+          // Enhanced function to create Vizarr viewers
+          async function createVizarrViewer(zarrUrl) {
+            console.log("Creating Vizarr viewer for:", zarrUrl);
+            
+            // Create vizarr URL with zarr source
+            const vizarrUrl = `http://localhost:3030/?source=${encodeURIComponent(zarrUrl)}`;
+            
+            const viewer = await api.createWindow({
+              src: vizarrUrl,
+              name: "Vizarr Viewer",
+            });
+            
+            console.log("Vizarr viewer created:", viewer);
+            return viewer;
+          }
+          
+          // Test with EBI zarr source
+          async function testEBIZarr() {
+            const zarrUrl = 'https://uk1s3.embassy.ebi.ac.uk/idr/zarr/v0.1/6001253.zarr';
+            return await createVizarrViewer(zarrUrl);
+          }
+          
+          // Simple test window
+          async function createTestWindow() {
+            const viewer = await api.createWindow({
+              src: "data:text/html,<h1>Test Window</h1><p>This demonstrates ImJoy API window creation.</p>",
+              name: "Test Window",
+            });
+            
+            console.log("Test window created:", viewer);
+            return viewer;
+          }
+          
+          // Function to clear all windows
+          function clearWindows() {
+            if (window.testWindows) {
+              Object.values(window.testWindows).forEach(windowData => {
+                if (windowData.wb && windowData.wb.close) {
+                  windowData.wb.close();
+                }
+              });
+              window.testWindows = {};
+              log("All test windows cleared", "success");
+            }
+          }
+          
+          // Expose test functions globally
+          window.createVizarrViewer = createVizarrViewer;
+          window.testEBIZarr = testEBIZarr;
+          window.createTestWindow = createTestWindow;
+          window.clearWindows = clearWindows;
+          
+          console.log("ImJoy API integration ready!");
+          console.log("Available functions:");
+          console.log("- window.createVizarrViewer(zarrUrl)");
+          console.log("- window.testEBIZarr()"); 
+          console.log("- window.createTestWindow()");
+          console.log("- window.clearWindows()");
+          console.log("- window.api (HyphaCore API)");
+          
+          return { 
+            success: true, 
+            api: api,
+            serviceCount: (await api.listServices()).length
+          };
+          
+        } catch (error) {
+          console.error("Initialization failed:", error);
+          window.initError = error;
+          return { 
+            success: false, 
+            error: error.message 
+          };
+        }
+      })();
+      
+      // Update status when initialization completes
+      window.initPromise.then(result => {
+        const statusDiv = document.getElementById('status');
+        if (result.success) {
+          statusDiv.textContent = `ImJoy API ready! Services: ${result.serviceCount}`;
+          statusDiv.className = 'status success';
+        } else {
+          statusDiv.textContent = `Initialization failed: ${result.error}`;
+          statusDiv.className = 'status error';
+        }
+      });
+    </script>
+    
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        margin: 0;
+        padding: 20px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        color: #333;
+      }
+      
+      .container {
+        max-width: 800px;
+        margin: 0 auto;
+        background: rgba(255, 255, 255, 0.95);
+        padding: 30px;
+        border-radius: 12px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+      }
+      
+      h1 {
+        text-align: center;
+        color: #4a5568;
+        margin-bottom: 30px;
+        font-weight: 300;
+        font-size: 2.5em;
+      }
+      
+      .status {
+        padding: 15px;
+        margin: 20px 0;
+        border-radius: 8px;
+        text-align: center;
+        font-weight: 500;
+        transition: all 0.3s ease;
+      }
+      
+      .status.success {
+        background: #d4edda;
+        border: 1px solid #c3e6cb;
+        color: #155724;
+      }
+      
+      .status.error {
+        background: #f8d7da;
+        border: 1px solid #f5c6cb;
+        color: #721c24;
+      }
+      
+      .test-section {
+        margin: 30px 0;
+        padding: 25px;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        background: #f8fafc;
+      }
+      
+      .test-section h3 {
+        margin-top: 0;
+        color: #2d3748;
+        font-weight: 500;
+      }
+      
+      .button-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+        margin-top: 20px;
+      }
+      
+      button {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+      
+      button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+      }
+      
+      button:active {
+        transform: translateY(0);
+      }
+      
+      button:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        transform: none;
+      }
+      
+      .results {
+        margin-top: 20px;
+        padding: 15px;
+        background: #fff;
+        border-radius: 6px;
+        border: 1px solid #e2e8f0;
+        font-family: 'Monaco', 'Consolas', monospace;
+        font-size: 12px;
+        max-height: 200px;
+        overflow-y: auto;
+      }
+      
+      .log-entry {
+        margin: 2px 0;
+        padding: 2px 0;
+      }
+      
+      .log-success { color: #22543d; }
+      .log-error { color: #c53030; }
+      .log-info { color: #2a69ac; }
+      
+      .window-status {
+        padding: 10px;
+        background: #f7fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        font-family: 'Monaco', 'Consolas', monospace;
+        font-size: 14px;
+        color: #4a5568;
+        text-align: center;
+      }
+      
+      .footer {
+        text-align: center;
+        margin-top: 40px;
+        padding-top: 20px;
+        border-top: 1px solid #e2e8f0;
+        color: #718096;
+        font-size: 14px;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="container">
+      <h1>🔬 Vizarr ImJoy API Integration</h1>
+      
+      <div class="status" id="status">Initializing ImJoy API...</div>
+      
+      <div class="test-section">
+        <h3>🧪 API Tests</h3>
+        <p>Test basic ImJoy API functionality and service discovery.</p>
+        <div class="button-grid">
+          <button onclick="testBasicAPI()">Test Basic API</button>
+          <button onclick="testServices()">List Services</button>
+          <button onclick="testSimpleWindow()">Create Test Window</button>
+          <button onclick="clearAllWindows()" style="background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);">Clear Windows</button>
+        </div>
+      </div>
+      
+      <div class="test-section">
+        <h3>🖼️ Vizarr Integration</h3>
+        <p>Load and display Zarr datasets using the ImJoy API.</p>
+        <div class="button-grid">
+          <button onclick="testEBIZarr()">Load EBI Sample</button>
+          <button onclick="testCustomZarr()">Load Custom URL</button>
+        </div>
+      </div>
+      
+      <div class="test-section">
+        <h3>📋 Test Results</h3>
+        <div class="results" id="results">
+          <div class="log-info">Ready for testing...</div>
+        </div>
+      </div>
+      
+      <div class="test-section">
+        <h3>🪟 Window Management</h3>
+        <div id="windowStatus" class="window-status">Active Windows: 0</div>
+      </div>
+      
+      <div class="footer">
+        <p>💡 This demonstrates the ImJoy API pattern: <code>viewer = await api.createWindow({src: 'vizarr-url...'})</code></p>
+        <p>Open browser console for detailed logs</p>
+      </div>
+    </div>
+
+    <script>
+      let testResults = [];
+      
+      // Update window status
+      function updateWindowStatus() {
+        const windowCount = window.testWindows ? Object.keys(window.testWindows).length : 0;
+        document.getElementById('windowStatus').textContent = `Active Windows: ${windowCount}`;
+      }
+      
+      // Clear all windows function
+      function clearAllWindows() {
+        try {
+          if (window.clearWindows) {
+            window.clearWindows();
+            updateWindowStatus();
+          } else {
+            log("Clear windows function not available yet", "error");
+          }
+        } catch (error) {
+          log(`Error clearing windows: ${error.message}`, "error");
+        }
+      }
+      
+      function log(message, type = 'info') {
+        const timestamp = new Date().toLocaleTimeString();
+        const results = document.getElementById('results');
+        const entry = document.createElement('div');
+        entry.className = `log-entry log-${type}`;
+        entry.textContent = `[${timestamp}] ${message}`;
+        results.appendChild(entry);
+        results.scrollTop = results.scrollHeight;
+        console.log(`[${type.toUpperCase()}]`, message);
+      }
+      
+      async function testBasicAPI() {
+        try {
+          const result = await window.initPromise;
+          if (!result.success) {
+            throw new Error(result.error);
+          }
+          
+          log("Testing basic API functionality...");
+          
+          if (!window.api) {
+            throw new Error("API not available");
+          }
+          
+          log("✅ API is available and ready", "success");
+          log(`API ID: ${window.api.id}`);
+          
+        } catch (error) {
+          log(`❌ Basic API test failed: ${error.message}`, "error");
+        }
+      }
+      
+      async function testServices() {
+        try {
+          const result = await window.initPromise;
+          if (!result.success) {
+            throw new Error(result.error);
+          }
+          
+          log("Listing available services...");
+          
+          const services = await window.api.listServices();
+          log(`✅ Found ${services.length} services`, "success");
+          
+          services.forEach((service, i) => {
+            log(`  ${i + 1}. ${service.name || service.id}`);
+          });
+          
+        } catch (error) {
+          log(`❌ Service listing failed: ${error.message}`, "error");
+        }
+      }
+      
+      async function testSimpleWindow() {
+        try {
+          const result = await window.initPromise;
+          if (!result.success) {
+            throw new Error(result.error);
+          }
+          
+          log("Creating test window...");
+          
+          if (!window.createTestWindow) {
+            throw new Error("createTestWindow function not available");
+          }
+          
+          const viewer = await window.createTestWindow();
+          log("✅ Test window created successfully", "success");
+          log(`Viewer: ${JSON.stringify(viewer)}`);
+          
+          // Update window status
+          setTimeout(updateWindowStatus, 500);
+          
+        } catch (error) {
+          log(`❌ Test window creation failed: ${error.message}`, "error");
+        }
+      }
+      
+      async function testEBIZarr() {
+        try {
+          const result = await window.initPromise;
+          if (!result.success) {
+            throw new Error(result.error);
+          }
+          
+          log("Loading EBI Zarr sample...");
+          
+          if (!window.testEBIZarr) {
+            throw new Error("testEBIZarr function not available");
+          }
+          
+          const viewer = await window.testEBIZarr();
+          log("✅ EBI Zarr viewer created successfully", "success");
+          log("Check the new window for the loaded dataset");
+          
+          // Update window status
+          setTimeout(updateWindowStatus, 500);
+          
+        } catch (error) {
+          log(`❌ EBI Zarr loading failed: ${error.message}`, "error");
+        }
+      }
+      
+      async function testCustomZarr() {
+        try {
+          const result = await window.initPromise;
+          if (!result.success) {
+            throw new Error(result.error);
+          }
+          
+          const zarrUrl = prompt(
+            "Enter Zarr URL:", 
+            "https://uk1s3.embassy.ebi.ac.uk/idr/zarr/v0.1/6001253.zarr"
+          );
+          
+          if (!zarrUrl) return;
+          
+          log(`Loading custom Zarr: ${zarrUrl}`);
+          
+          if (!window.createVizarrViewer) {
+            throw new Error("createVizarrViewer function not available");
+          }
+          
+          const viewer = await window.createVizarrViewer(zarrUrl);
+          log("✅ Custom Zarr viewer created successfully", "success");
+          log("Check the new window for the loaded dataset");
+          
+          // Update window status
+          setTimeout(updateWindowStatus, 500);
+          
+        } catch (error) {
+          log(`❌ Custom Zarr loading failed: ${error.message}`, "error");
+        }
+      }
+      
+      // Update window status periodically
+      setInterval(updateWindowStatus, 1000);
+    </script>
+  </body>
+</html> 
