@@ -54,7 +54,7 @@ function AxisSlider({ axisIndex, max }: Props) {
 
   const handleDrag = (_: ChangeEvent<unknown>, value: number | number[]) => {
     setValue(value as number);
-    setLabel(Array.isArray(axisLabel) ? axisLabel[value as number] : axisLabel);
+    // setLabel(Array.isArray(axisLabel) ? axisLabel[value as number] : axisLabel);
   };
 
   return (

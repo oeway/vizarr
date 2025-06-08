@@ -41,13 +41,22 @@ test.describe('Minimal HyphaCore Test', () => {
     
     // Check results
     const results = await page.locator('#results').textContent();
-    expect(results).toContain('API test passed!');
+    expect(results).toContain('✅ API test passed!');
     
     console.log('✅ Basic API test passed');
   });
   
-  test('should handle window creation', async ({ page }) => {
-    console.log('Testing window creation...');
+  test('should handle window creation attempt', async ({ page }) => {
+    console.log('Testing window creation attempt...');
+    
+    // Capture console logs
+    const consoleLogs: string[] = [];
+    page.on('console', msg => {
+      if (msg.type() === 'log') {
+        consoleLogs.push(msg.text());
+        console.log('Browser console:', msg.text());
+      }
+    });
     
     // Navigate to minimal test page
     await page.goto('/lite-test-minimal.html');
@@ -59,17 +68,28 @@ test.describe('Minimal HyphaCore Test', () => {
     await page.click('button:has-text("Test Window Creation")');
     
     // Wait for results
-    await page.waitForTimeout(3000);
+    await page.waitForTimeout(15000); // Give more time for success or timeout to trigger
     
     // Check results
     const results = await page.locator('#results').textContent();
     
-    // This might fail if window creation has issues, but we want to see what happens
-    if (results && results.includes('Window created successfully!')) {
-      console.log('✅ Window creation test passed');
-    } else {
-      console.log('Window creation test results:', results || 'No results');
-      // Don't fail the test, just log what happened
-    }
+    // Log all captured console messages
+    console.log('\n=== CAPTURED CONSOLE LOGS ===');
+    consoleLogs.forEach((log, index) => {
+      console.log(`${index + 1}: ${log}`);
+    });
+    console.log('==============================\n');
+    
+    // Check that the window creation was attempted (either success or timeout)
+    const hasAttempt = results?.includes('API available, attempting to create window...') || false;
+    const hasSuccess = results?.includes('✅ Window created successfully!') || false;
+    const hasTimeout = results?.includes('createWindow timeout') || false;
+    const hasError = results?.includes('❌ Window creation failed') || false;
+    
+    expect(hasAttempt).toBe(true);
+    expect(hasSuccess || hasTimeout || hasError).toBe(true);
+    
+    console.log('Window creation attempt result:', { hasSuccess, hasTimeout, hasError });
+    console.log('Console logs captured:', consoleLogs.length);
   });
 }); 

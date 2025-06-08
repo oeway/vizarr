@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { TestUtils } from './test-utils';
+import { TestUtils } from './integration/test-utils';
 
 test.describe('Core Zarr Functionality', () => {
   test('should successfully load and display zarr image from EBI source', async ({ page }) => {

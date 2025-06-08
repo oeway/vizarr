@@ -1,6 +1,6 @@
 {
   "name": "@hms-dbmi/vizarr",
-  "version": "0.3.0", 
+  "version": "0.3.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -30,6 +30,8 @@
     "@vivjs/types": "~0.17.0",
     "@zarrita/storage": "0.1.0",
     "deck.gl": "~9.0.0",
+    "hypha-core": "^0.20.56-pre6",
+    "hypha-rpc": "^0.20.55",
     "jotai": "^1.0.0",
     "just-debounce-it": "^3.1.1",
     "math.gl": "^4.1.0",

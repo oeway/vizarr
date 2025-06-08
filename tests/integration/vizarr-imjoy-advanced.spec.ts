@@ -329,11 +329,14 @@ test.describe('Advanced Vizarr ImJoy API Integration', () => {
 // Global type declarations for test environment
 declare global {
   interface Window {
+    initPromise: Promise<any>;
     hyphaCorePromise: Promise<any>;
     hyphaCore: any;
     api: any;
     createVizarrViewer: (url: string) => Promise<any>;
-    testEBIZarr: () => Promise<any>;
+    loadEBIZarr: () => Promise<any>;
     testWindows: Record<string, any>;
+    clearWindows: () => void;
+    createTestWindow: () => Promise<any>;
   }
 } 

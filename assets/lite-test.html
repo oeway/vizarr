@@ -13,15 +13,32 @@
           console.log("Starting HyphaCore initialization...");
           
           // Import HyphaCore from CDN
-          const { HyphaCore } = await import("https://cdn.jsdelivr.net/npm/hypha-core@0.20.55/dist/hypha-core.mjs");
+          const { HyphaCore } = await import("https://cdn.jsdelivr.net/npm/hypha-core@0.20.56-pre6/dist/hypha-core.mjs");
           console.log("HyphaCore imported successfully");
           
-          const hyphaCore = new HyphaCore();
-          console.log("HyphaCore instance created");
+          // Create HyphaCore instance with proper configuration (following test.html pattern)
+          const hyphaCore = new HyphaCore({
+            jwtSecret: 'vizarr-integration-test-key-2024',
+            port: 8080 + Math.floor(Math.random() * 1000) // Random port to avoid conflicts
+          });
+          console.log(`HyphaCore instance created with URL: ${hyphaCore.url}`);
 
-          // Setup WinBox window management
+          // Setup WinBox window management (following test.html pattern)
           hyphaCore.on("add_window", (config) => {
-            console.log("Creating window:", config);
+            console.log("=== ADD_WINDOW CALLBACK DEBUG ===");
+            console.log("Config:", config);
+            console.log("Config keys:", Object.keys(config));
+            console.log("======================================");
+            
+            // Create iframe element first and add to document body
+            const iframe = document.createElement('iframe');
+            iframe.id = config.window_id;
+            iframe.src = config.src;
+            iframe.style.cssText = 'width: 100%; height: 100%; border: none;';
+            
+            // Add iframe to document body first (this is what HyphaCore looks for)
+            document.body.appendChild(iframe);
+            console.log(`Iframe added to document body with ID: ${config.window_id}`);
             
             const wb = new WinBox(config.name || config.src.slice(0, 128), {
               background: "#448aff",
@@ -35,60 +52,87 @@
                   delete window.testWindows[config.window_id];
                 }
                 log(`Window ${config.window_id} closed`);
+                // Clean up iframe when window is closed
+                const iframeElement = document.getElementById(config.window_id);
+                if (iframeElement) {
+                  iframeElement.remove();
+                }
               }
             });
             
-            wb.body.innerHTML = `<iframe src="${config.src}" id="${config.window_id}" style="width: 100%; height: 100%; border: none;"></iframe>`;
+            // Move the iframe into the WinBox body
+            wb.body.appendChild(iframe);
             
-            // Store window reference for tests
+            // Store window reference
             if (!window.testWindows) window.testWindows = {};
-            window.testWindows[config.window_id] = { wb, iframe: wb.body.querySelector('iframe') };
+            window.testWindows[config.window_id] = { wb, config, iframe };
             
             console.log(`Window created with ID: ${config.window_id}`);
-            log(`✅ Window "${config.name}" opened successfully`, "success");
+            
+            // Log window creation
+            console.log(`✓ Window created: ${config.name || config.src}`);
           });
           
           // Expose hyphaCore globally
           window.hyphaCore = hyphaCore;
           
           console.log("Starting HyphaCore...");
-          const api =await hyphaCore.start();
+          
+          const api = await hyphaCore.start();
           console.log("HyphaCore started successfully");
+          console.log(`✓ Root API obtained with methods: ${Object.keys(api).filter(k => typeof api[k] === 'function').join(', ')}`);
           
           // Expose API
           window.api = api;
           console.log("API exposed:", api);
           
-          // Enhanced function to create Vizarr viewers
+          // Enhanced function to create Vizarr viewers using proper API
           async function createVizarrViewer(zarrUrl) {
             console.log("Creating Vizarr viewer for:", zarrUrl);
             
-            // Create vizarr URL with zarr source
-            const vizarrUrl = `http://localhost:3030/?source=${encodeURIComponent(zarrUrl)}`;
+            // Use the actual Vizarr CDN URL instead of localhost
+            const baseUrl = window.location.origin;
+            const vizarrUrl = baseUrl + "/";
+            console.log("Creating Vizarr window at:", vizarrUrl);
             
-            const viewer = await api.createWindow({
+            // Create the window using the ROOT API (just like test.html)
+            const windowConfig = {
               src: vizarrUrl,
               name: "Vizarr Viewer",
-            });
+              width: 800,
+              height: 600
+            };
             
-            console.log("Vizarr viewer created:", viewer);
+            // Use api.createWindow() - this is the correct API!
+            const viewer = await api.createWindow(windowConfig);
+            await viewer.addImage({
+              source: zarrUrl,
+              name: "EBI Sample"
+            });
+            console.log("Vizarr window created successfully");
+            log(`✅ Vizarr viewer loaded with source: ${zarrUrl}`);
+            
             return viewer;
           }
           
           // Test with EBI zarr source
-          async function testEBIZarr() {
-            const zarrUrl = 'https://uk1s3.embassy.ebi.ac.uk/idr/zarr/v0.1/6001253.zarr';
+          async function loadEBIZarr() {
+            const zarrUrl = 'https://uk1s3.embassy.ebi.ac.uk/idr/zarr/v0.1/6001237.zarr';
             return await createVizarrViewer(zarrUrl);
           }
           
           // Simple test window
           async function createTestWindow() {
-            const viewer = await api.createWindow({
-              src: "data:text/html,<h1>Test Window</h1><p>This demonstrates ImJoy API window creation.</p>",
+            const windowConfig = {
+              src: "data:text/html,<h1>Test Window</h1><p>This demonstrates ImJoy API window creation.</p><p>Current time: " + new Date().toLocaleTimeString() + "</p>",
               name: "Test Window",
-            });
+              width: 600,
+              height: 400
+            };
             
-            console.log("Test window created:", viewer);
+            // Use api.createWindow() - same as Vizarr
+            const viewer = await api.createWindow(windowConfig);
+            console.log("Test window created successfully");
             return viewer;
           }
           
@@ -107,14 +151,14 @@
           
           // Expose test functions globally
           window.createVizarrViewer = createVizarrViewer;
-          window.testEBIZarr = testEBIZarr;
+          window.loadEBIZarr = loadEBIZarr;
           window.createTestWindow = createTestWindow;
           window.clearWindows = clearWindows;
           
           console.log("ImJoy API integration ready!");
           console.log("Available functions:");
           console.log("- window.createVizarrViewer(zarrUrl)");
-          console.log("- window.testEBIZarr()"); 
+          console.log("- window.loadEBIZarr()"); 
           console.log("- window.createTestWindow()");
           console.log("- window.clearWindows()");
           console.log("- window.api (HyphaCore API)");
@@ -424,11 +468,9 @@
           }
           
           const viewer = await window.createTestWindow();
-          log("✅ Test window created successfully", "success");
-          log(`Viewer: ${JSON.stringify(viewer)}`);
+          log(`✅ Test window created: ${JSON.stringify(viewer)}`, "success");
           
-          // Update window status
-          setTimeout(updateWindowStatus, 500);
+          updateWindowStatus();
           
         } catch (error) {
           log(`❌ Test window creation failed: ${error.message}`, "error");
@@ -444,16 +486,15 @@
           
           log("Loading EBI Zarr sample...");
           
-          if (!window.testEBIZarr) {
-            throw new Error("testEBIZarr function not available");
+          if (!window.loadEBIZarr) {
+            throw new Error("loadEBIZarr function not available");
           }
           
-          const viewer = await window.testEBIZarr();
-          log("✅ EBI Zarr viewer created successfully", "success");
+          const viewer = await window.loadEBIZarr();
+          log(`✅ EBI Zarr viewer created: ${JSON.stringify(viewer)}`, "success");
           log("Check the new window for the loaded dataset");
           
-          // Update window status
-          setTimeout(updateWindowStatus, 500);
+          updateWindowStatus();
           
         } catch (error) {
           log(`❌ EBI Zarr loading failed: ${error.message}`, "error");
@@ -469,7 +510,7 @@
           
           const zarrUrl = prompt(
             "Enter Zarr URL:", 
-            "https://uk1s3.embassy.ebi.ac.uk/idr/zarr/v0.1/6001253.zarr"
+            "https://uk1s3.embassy.ebi.ac.uk/idr/zarr/v0.1/6001237.zarr"
           );
           
           if (!zarrUrl) return;
@@ -481,19 +522,18 @@
           }
           
           const viewer = await window.createVizarrViewer(zarrUrl);
-          log("✅ Custom Zarr viewer created successfully", "success");
+          log(`✅ Custom Zarr viewer created: ${JSON.stringify(viewer)}`, "success");
           log("Check the new window for the loaded dataset");
           
-          // Update window status
-          setTimeout(updateWindowStatus, 500);
+          updateWindowStatus();
           
         } catch (error) {
           log(`❌ Custom Zarr loading failed: ${error.message}`, "error");
         }
       }
       
-      // Update window status periodically
-      setInterval(updateWindowStatus, 1000);
+      // Initialize window status
+      updateWindowStatus();
     </script>
   </body>
 </html> 
