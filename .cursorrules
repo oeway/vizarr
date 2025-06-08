@@ -166,6 +166,8 @@ The Kaibu API (see `docs/kaibu-docs.md`) serves as the primary reference for:
 - **Extensibility** - Easy plugin development and customization
 - **Adoption** - Active use in research and development communities
 
----
 
-*This project aims to advance the state of web-based image visualization by combining vizarr's technical excellence with comprehensive annotation capabilities, creating a powerful platform for scientific image analysis and collaboration.* 
+## Important Notes
+
+ - After changing the code, you don't need to run npm run dev, since I have it already running.
+ - To test the vizarr viewer, visit http://localhost:3030/?source=https://uk1s3.embassy.ebi.ac.uk/idr/zarr/v0.1/6001253.zarr

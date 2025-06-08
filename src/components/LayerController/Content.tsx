@@ -8,6 +8,7 @@ import AxisSliders from "./AxisSliders";
 import ChannelController from "./ChannelController";
 import Labels from "./Labels";
 import OpacitySlider from "./OpacitySlider";
+import AnnotationSection from "./AnnotationSection";
 
 import { useLayerState } from "../../hooks";
 import { range } from "../../utils";
@@ -17,12 +18,20 @@ const Details = withStyles({
     padding: "8px 10px",
     borderLeft: "1px solid rgba(150, 150, 150, .2)",
     borderRight: "1px solid rgba(150, 150, 150, .2)",
+    overflow: "hidden", // Prevent content overflow
+    maxWidth: "100%",
+    boxSizing: "border-box",
   },
 })(AccordionDetails);
 
-function Content() {
+interface ContentProps {
+  onAnnotationLayersChange?: (layers: any[]) => void;
+}
+
+function Content({ onAnnotationLayersChange }: ContentProps = {}) {
   const [layer] = useLayerState();
   const nChannels = layer.layerProps.selections.length;
+  
   return (
     <Details>
       <Grid container direction="column">
@@ -76,6 +85,13 @@ function Content() {
               ))}
             </Grid>
           </>
+        )}
+        
+        {/* Annotation Section */}
+        {onAnnotationLayersChange && (
+          <Grid item>
+            <AnnotationSection onLayersChange={onAnnotationLayersChange} />
+          </Grid>
         )}
       </Grid>
     </Details>

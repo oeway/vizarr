@@ -359,6 +359,21 @@
           <button onclick="testCustomZarr()">Load Custom URL</button>
         </div>
       </div>
+
+      <div class="test-section">
+        <h3>🎨 Annotation APIs (Kaibu-style)</h3>
+        <p>Test the new annotation capabilities based on Kaibu's API design.</p>
+        <div class="button-grid">
+          <button onclick="testAddShapes()">Create Annotation Layer</button>
+          <button onclick="testGetLayers()">List All Layers</button>
+          <button onclick="testLayerFeatures()">Test Layer Features</button>
+          <button onclick="testFeatureSelection()">Test Feature Selection</button>
+          <button onclick="testLayerManagement()">Test Layer Management</button>
+          <button onclick="testComplexAnnotations()">Complex Annotation Test</button>
+        </div>
+        <div id="annotationStatus" class="window-status">No annotation layers created yet</div>
+        <div id="window-container"></div>
+      </div>
       
       <div class="test-section">
         <h3>📋 Test Results</h3>
@@ -531,9 +546,324 @@
           log(`❌ Custom Zarr loading failed: ${error.message}`, "error");
         }
       }
+
+      // Global variables for annotation testing
+      let currentViewer = null;
+      let testLayers = [];
+      
+      // Update annotation status
+      function updateAnnotationStatus() {
+        const statusDiv = document.getElementById('annotationStatus');
+        if (testLayers.length > 0) {
+          statusDiv.textContent = `Active annotation layers: ${testLayers.length}`;
+          statusDiv.style.background = '#d4edda';
+          statusDiv.style.color = '#155724';
+        } else {
+          statusDiv.textContent = 'No annotation layers created yet';
+          statusDiv.style.background = '#f8fafc';
+          statusDiv.style.color = '#4a5568';
+        }
+      }
+
+      // Ensure we have a Vizarr viewer for annotation testing
+      async function ensureViewer() {
+        if (!currentViewer) {
+          log("Creating Vizarr viewer for annotation testing...");
+          currentViewer = await window.loadEBIZarr();
+          log("✅ Vizarr viewer ready for annotation testing", "success");
+          // Wait a bit for the viewer to fully load
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+        return currentViewer;
+      }
+
+      // Test 1: Create annotation layer with add_shapes
+      async function testAddShapes() {
+        try {
+          const result = await window.initPromise;
+          if (!result.success) {
+            throw new Error(result.error);
+          }
+
+          const viewer = await ensureViewer();
+          log("Testing add_shapes API...");
+
+          // Create a polygon annotation layer
+          const polygonShapes = [
+            [[100, 100], [200, 100], [200, 200], [100, 200], [100, 100]], // Square polygon
+            [[300, 150], [400, 120], [450, 180], [380, 220], [300, 150]]  // Triangle-like polygon
+          ];
+
+          const layer = await viewer.add_shapes(polygonShapes, {
+            name: "Test Polygons",
+            shape_type: "polygon", 
+            edge_color: "#ff8c00",
+            face_color: "rgba(255, 140, 0, 0.3)",
+            edge_width: 3
+          });
+
+          testLayers.push(layer);
+          log(`✅ Created annotation layer: ${layer.name} (ID: ${layer.id})`, "success");
+          log(`Layer API methods: ${Object.keys(layer).filter(k => typeof layer[k] === 'function').join(', ')}`);
+          
+          updateAnnotationStatus();
+
+        } catch (error) {
+          log(`❌ add_shapes test failed: ${error.message}`, "error");
+        }
+      }
+
+      // Test 2: List all annotation layers
+      async function testGetLayers() {
+        try {
+          const result = await window.initPromise;
+          if (!result.success) {
+            throw new Error(result.error);
+          }
+
+          const viewer = await ensureViewer();
+          log("Testing get_layers API...");
+
+          const layers = await viewer.get_layers();
+          log(`✅ Found ${layers.layers.length} annotation layers:`, "success");
+          
+          layers.layers.forEach((layer, index) => {
+            log(`  ${index + 1}. ${layer.name} (${layer.featureCount} features) - ${layer.visible ? 'visible' : 'hidden'}`);
+          });
+
+        } catch (error) {
+          log(`❌ get_layers test failed: ${error.message}`, "error");
+        }
+      }
+
+      // Test 3: Test layer feature operations
+      async function testLayerFeatures() {
+        try {
+          if (testLayers.length === 0) {
+            throw new Error("No test layers available. Run 'Create Annotation Layer' first.");
+          }
+
+          const layer = testLayers[0];
+          log(`Testing feature operations on layer: ${layer.name}`);
+
+          // Get current features
+          const features = await layer.get_features();
+          log(`✅ Current features: ${features.length}`, "success");
+
+          // Add a new feature
+          const newFeature = {
+            id: `feature-${Date.now()}`,
+            type: 'Feature',
+            geometry: {
+              type: 'Polygon',
+              coordinates: [[[50, 50], [150, 50], [150, 150], [50, 150], [50, 50]]]
+            },
+            properties: {
+              label: 'API Added Feature',
+              edge_color: '#00ff00',
+              face_color: 'rgba(0, 255, 0, 0.3)'
+            }
+          };
+
+          await layer.add_feature(newFeature);
+          log(`✅ Added new feature: ${newFeature.id}`, "success");
+
+          // Get updated features
+          const updatedFeatures = await layer.get_features();
+          log(`✅ Updated feature count: ${updatedFeatures.length}`, "success");
+
+        } catch (error) {
+          log(`❌ Layer features test failed: ${error.message}`, "error");
+        }
+      }
+
+      // Test 4: Test feature selection
+      async function testFeatureSelection() {
+        try {
+          if (testLayers.length === 0) {
+            throw new Error("No test layers available. Run 'Create Annotation Layer' first.");
+          }
+
+          const layer = testLayers[0];
+          log(`Testing feature selection on layer: ${layer.name}`);
+
+          const features = await layer.get_features();
+          if (features.length === 0) {
+            throw new Error("No features to select. Add some features first.");
+          }
+
+          // Select the first feature
+          const firstFeatureId = features[0].id;
+          await layer.select_feature(firstFeatureId);
+          log(`✅ Selected feature: ${firstFeatureId}`, "success");
+
+          // Select multiple features if available
+          if (features.length > 1) {
+            const featureIds = features.slice(0, 2).map(f => f.id);
+            await layer.select_features(featureIds);
+            log(`✅ Selected ${featureIds.length} features: ${featureIds.join(', ')}`, "success");
+          }
+
+        } catch (error) {
+          log(`❌ Feature selection test failed: ${error.message}`, "error");
+        }
+      }
+
+      // Test 5: Test layer management operations
+      async function testLayerManagement() {
+        try {
+          const result = await window.initPromise;
+          if (!result.success) {
+            throw new Error(result.error);
+          }
+
+          const viewer = await ensureViewer();
+          log("Testing layer management operations...");
+
+          // Create a new layer for testing management operations
+          const testShapes = [
+            [[400, 400], [500, 400], [500, 500], [400, 500], [400, 400]]
+          ];
+
+          const managementLayer = await viewer.add_shapes(testShapes, {
+            name: "Management Test Layer",
+            shape_type: "polygon",
+            edge_color: "#ff0000"
+          });
+
+          testLayers.push(managementLayer);
+          log(`✅ Created management test layer: ${managementLayer.id}`, "success");
+
+          // Test clear features
+          await managementLayer.clear_features();
+          const clearedFeatures = await managementLayer.get_features();
+          log(`✅ Cleared features. Remaining: ${clearedFeatures.length}`, "success");
+
+          // Test set_features
+          const newFeatures = [
+            {
+              id: 'test-feature-1',
+              type: 'Feature',
+              geometry: {
+                type: 'Polygon', 
+                coordinates: [[[450, 450], [550, 450], [550, 550], [450, 550], [450, 450]]]
+              },
+              properties: { label: 'Set Feature 1' }
+            },
+            {
+              id: 'test-feature-2',
+              type: 'Feature',
+              geometry: {
+                type: 'Polygon',
+                coordinates: [[[460, 460], [560, 460], [560, 560], [460, 560], [460, 560]]]
+              },
+              properties: { label: 'Set Feature 2' }
+            }
+          ];
+
+          await managementLayer.set_features(newFeatures);
+          const setFeatures = await managementLayer.get_features();
+          log(`✅ Set ${newFeatures.length} features. Current: ${setFeatures.length}`, "success");
+
+          // Test remove_layer
+          await viewer.remove_layer(managementLayer.id);
+          testLayers = testLayers.filter(l => l.id !== managementLayer.id);
+          log(`✅ Removed layer: ${managementLayer.id}`, "success");
+          
+          updateAnnotationStatus();
+
+        } catch (error) {
+          log(`❌ Layer management test failed: ${error.message}`, "error");
+        }
+      }
+
+      // Test 6: Complex annotation workflow
+      async function testComplexAnnotations() {
+        try {
+          const result = await window.initPromise;
+          if (!result.success) {
+            throw new Error(result.error);
+          }
+
+          const viewer = await ensureViewer();
+          log("Running complex annotation workflow test...");
+
+          // Step 1: Create multiple annotation layers
+          const polygonLayer = await viewer.add_shapes([
+            [[10, 10], [110, 10], [110, 110], [10, 110], [10, 10]]
+          ], {
+            name: "Polygon Annotations",
+            shape_type: "polygon",
+            edge_color: "#0080ff"
+          });
+
+          const pathLayer = await viewer.add_shapes([
+            [[200, 200], [300, 250], [350, 200], [400, 280]]
+          ], {
+            name: "Path Annotations", 
+            shape_type: "path",
+            edge_color: "#ff8000"
+          });
+
+          testLayers.push(polygonLayer, pathLayer);
+          log(`✅ Created ${testLayers.length} annotation layers`, "success");
+
+          // Step 2: Add features to each layer
+          await polygonLayer.add_feature({
+            id: 'complex-poly-1',
+            type: 'Feature',
+            geometry: {
+              type: 'Polygon',
+              coordinates: [[[120, 120], [220, 120], [220, 220], [120, 220], [120, 120]]]
+            },
+            properties: { label: 'Complex Polygon' }
+          });
+
+          await pathLayer.add_features([
+            {
+              id: 'complex-path-1',
+              type: 'Feature', 
+              geometry: {
+                type: 'LineString',
+                coordinates: [[500, 100], [600, 150], [650, 100]]
+              },
+              properties: { label: 'Complex Path 1' }
+            },
+            {
+              id: 'complex-path-2',
+              type: 'Feature',
+              geometry: {
+                type: 'LineString', 
+                coordinates: [[500, 200], [600, 250], [650, 200]]
+              },
+              properties: { label: 'Complex Path 2' }
+            }
+          ]);
+
+          // Step 3: Test cross-layer operations
+          const allLayers = await viewer.get_layers();
+          log(`✅ Total layers: ${allLayers.layers.length}`, "success");
+
+          // Step 4: Get specific layer and test operations
+          const retrievedLayer = await viewer.get_layer(polygonLayer.id);
+          const layerFeatures = await retrievedLayer.layer.get_features();
+          log(`✅ Retrieved layer has ${layerFeatures.length} features`, "success");
+
+          // Step 5: Test feature manipulation
+          await retrievedLayer.layer.select_feature(layerFeatures[0].id);
+          log(`✅ Selected feature in retrieved layer`, "success");
+
+          updateAnnotationStatus();
+          log("🎉 Complex annotation workflow completed successfully!", "success");
+
+        } catch (error) {
+          log(`❌ Complex annotation test failed: ${error.message}`, "error");
+        }
+      }
       
       // Initialize window status
       updateWindowStatus();
+      updateAnnotationStatus();
     </script>
   </body>
 </html> 

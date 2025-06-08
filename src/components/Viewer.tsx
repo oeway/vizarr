@@ -5,6 +5,7 @@ import * as React from "react";
 import { useViewState } from "../hooks";
 import { layerAtoms } from "../state";
 import { fitImageToViewport, isGridLayerProps, isInterleaved, resolveLoaderFromLayerProps } from "../utils";
+import Menu from "./Menu";
 
 import type { DeckGLRef, OrthographicViewState } from "deck.gl";
 import type { VizarrLayer } from "../state";
@@ -14,6 +15,7 @@ export default function Viewer() {
   const [viewState, setViewState] = useViewState();
   const layers = useAtomValue(layerAtoms);
   const firstLayer = layers[0];
+  const [annotationLayers, setAnnotationLayers] = React.useState<any[]>([]);
 
   // If viewState hasn't been updated, use the first loader to guess viewState
   // TODO: There is probably a better place / way to set the intital view and this is a hack.
@@ -34,18 +36,38 @@ export default function Viewer() {
     preserveDrawingBuffer: true,
   };
 
+  // Combine vizarr layers with annotation layers
+  const allLayers = [...layers, ...annotationLayers];
+
+  const handleAnnotationLayersChange = React.useCallback((newLayers: any[]) => {
+    setAnnotationLayers(newLayers);
+    console.log('Annotation layers updated:', newLayers.length);
+  }, []);
+
   return (
-    <DeckGL
-      ref={deckRef}
-      layers={layers}
-      viewState={viewState && { ortho: viewState }}
-      onViewStateChange={(e: { viewState: OrthographicViewState }) =>
-        // @ts-expect-error - deck doesn't know this should be ok
-        setViewState(e.viewState)
-      }
-      views={[new OrthographicView({ id: "ortho", controller: true })]}
-      glOptions={glOptions}
-    />
+    <>
+      <DeckGL
+        ref={deckRef}
+        layers={allLayers}
+        viewState={viewState && { ortho: viewState }}
+        onViewStateChange={(e: { viewState: OrthographicViewState }) =>
+          // @ts-expect-error - deck doesn't know this should be ok
+          setViewState(e.viewState)
+        }
+        views={[new OrthographicView({ id: "ortho", controller: true })]}
+        glOptions={glOptions}
+        style={{
+          position: 'fixed',
+          top: '0',
+          left: '0',
+          width: '100%',
+          height: '100%',
+          zIndex: '0',
+          overflow: 'hidden'
+        }}
+      />
+      <Menu onAnnotationLayersChange={handleAnnotationLayersChange} />
+    </>
   );
 }
 

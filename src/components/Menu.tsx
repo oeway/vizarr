@@ -18,9 +18,9 @@ const useStyles = makeStyles({
     top: "5px",
   },
   scroll: {
-    maxHeight: 500,
+    maxHeight: "calc(100vh - 20px)", // Allow expansion to almost full viewport height
     overflowX: "hidden",
-    overflowY: "scroll",
+    overflowY: "auto", // Enable scrolling when content exceeds maxHeight
     "&::-webkit-scrollbar": {
       display: "none",
       background: "transparent",
@@ -30,9 +30,14 @@ const useStyles = makeStyles({
   },
 });
 
-function Menu(props: { open?: boolean }) {
+interface MenuProps {
+  open?: boolean;
+  onAnnotationLayersChange?: (layers: any[]) => void;
+}
+
+function Menu({ open, onAnnotationLayersChange }: MenuProps) {
   const sourceAtoms = useAtomValue(sourceInfoAtomAtoms);
-  const [hidden, toggle] = useReducer((v) => !v, !(props.open ?? true));
+  const [hidden, toggle] = useReducer((v) => !v, !(open ?? true));
   const classes = useStyles();
   return (
     <div className={classes.root} style={{ padding: `0px 5px ${hidden ? 0 : 5}px 5px` }}>
@@ -43,7 +48,7 @@ function Menu(props: { open?: boolean }) {
         <div className={classes.scroll} style={{ display: hidden ? "none" : "flex" }}>
           {sourceAtoms.map((sourceAtom) => (
             <SourceDataContext.Provider key={`${sourceAtom}`} value={sourceAtom}>
-              <LayerController />
+              <LayerController onAnnotationLayersChange={onAnnotationLayersChange} />
             </SourceDataContext.Provider>
           ))}
         </div>

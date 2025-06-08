@@ -23,6 +23,7 @@
     "check": "tsc"
   },
   "dependencies": {
+    "@deck.gl-community/editable-layers": "^9.0.3",
     "@emotion/react": "^11.11.3",
     "@emotion/styled": "^11.11.0",
     "@hms-dbmi/viv": "~0.17.2",

@@ -38,6 +38,303 @@ async function main() {
           throw new Error(`Failed to add image: ${error instanceof Error ? error.message : String(error)}`);
         }
       },
+
+      async add_shapes(shapes: any[], options: any = {}) {
+        console.log("🎨 add_shapes called via HyphaCore API:", { shapesCount: shapes.length, options });
+        try {
+          // Create a new annotation layer
+          const layerId = `annotation-layer-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+          const layerName = options.name || `Annotation ${Date.now()}`;
+          
+          // Convert shapes to GeoJSON features
+          const features = shapes.map((shape, index) => {
+            let geometry;
+            
+            // Handle different shape types
+            if (options.shape_type === 'polygon' || !options.shape_type) {
+              geometry = {
+                type: 'Polygon',
+                coordinates: [shape] // Polygon coordinates should be an array of rings
+              };
+            } else if (options.shape_type === 'path') {
+              geometry = {
+                type: 'LineString',
+                coordinates: shape
+              };
+            } else if (options.shape_type === 'rectangle') {
+              // Rectangle should be 4 points
+              geometry = {
+                type: 'Polygon',
+                coordinates: [shape]
+              };
+            }
+            
+            return {
+              id: `feature-${index}-${Date.now()}`,
+              type: 'Feature',
+              geometry,
+              properties: {
+                label: options.label || '',
+                edge_color: options.edge_color || '#ff8c00',
+                face_color: options.face_color || 'rgba(255, 140, 0, 0.3)',
+                edge_width: options.edge_width || 2,
+                size: options.size || 1
+              }
+            };
+          });
+
+          // Wait for annotation controller to be available
+          let annotationController = (window as any).annotationController;
+          let retries = 0;
+          const maxRetries = 50; // Wait up to 5 seconds
+          
+          while (!annotationController && retries < maxRetries) {
+            console.log(`⏳ Waiting for annotation controller... (${retries + 1}/${maxRetries})`);
+            await new Promise(resolve => setTimeout(resolve, 100));
+            annotationController = (window as any).annotationController;
+            retries++;
+          }
+
+          if (!annotationController) {
+            throw new Error("Annotation controller not available after waiting. Make sure Vizarr is fully loaded with annotation system.");
+          }
+
+          console.log("✅ Annotation controller found, adding layer...");
+          await annotationController.addAnnotationLayer({
+            id: layerId,
+            name: layerName,
+            features: features,
+            visible: true,
+            selectedFeatureIndexes: []
+          });
+
+          // Return layer API object with _rintf marked functions
+          const layerAPI = {
+            id: layerId,
+            name: layerName,
+            
+            get_features: Object.assign(async function() {
+              console.log("🔍 get_features called for layer:", layerId);
+              const controller = (window as any).annotationController;
+              if (!controller) {
+                throw new Error("Annotation controller not available");
+              }
+              return await controller.getLayerFeatures(layerId);
+            }, { _rintf: true }),
+            
+            set_features: Object.assign(async function(features: any[]) {
+              console.log("📝 set_features called for layer:", layerId, "features:", features.length);
+              const controller = (window as any).annotationController;
+              if (!controller) {
+                throw new Error("Annotation controller not available");
+              }
+              await controller.setLayerFeatures(layerId, features);
+            }, { _rintf: true }),
+            
+            add_feature: Object.assign(async function(feature: any) {
+              console.log("➕ add_feature called for layer:", layerId);
+              const controller = (window as any).annotationController;
+              if (!controller) {
+                throw new Error("Annotation controller not available");
+              }
+              await controller.addFeatureToLayer(layerId, feature);
+            }, { _rintf: true }),
+            
+            add_features: Object.assign(async function(features: any[]) {
+              console.log("➕ add_features called for layer:", layerId, "count:", features.length);
+              const controller = (window as any).annotationController;
+              if (!controller) {
+                throw new Error("Annotation controller not available");
+              }
+              await controller.addFeaturesToLayer(layerId, features);
+            }, { _rintf: true }),
+            
+            remove_feature: Object.assign(async function(id: string) {
+              console.log("🗑️ remove_feature called for layer:", layerId, "feature:", id);
+              const controller = (window as any).annotationController;
+              if (!controller) {
+                throw new Error("Annotation controller not available");
+              }
+              await controller.removeFeatureFromLayer(layerId, id);
+            }, { _rintf: true }),
+            
+            remove_features: Object.assign(async function(ids: string[]) {
+              console.log("🗑️ remove_features called for layer:", layerId, "features:", ids);
+              const controller = (window as any).annotationController;
+              if (!controller) {
+                throw new Error("Annotation controller not available");
+              }
+              await controller.removeFeaturesFromLayer(layerId, ids);
+            }, { _rintf: true }),
+            
+            clear_features: Object.assign(async function() {
+              console.log("🧹 clear_features called for layer:", layerId);
+              const controller = (window as any).annotationController;
+              if (!controller) {
+                throw new Error("Annotation controller not available");
+              }
+              await controller.clearLayerFeatures(layerId);
+            }, { _rintf: true }),
+            
+            update_feature: Object.assign(async function(id: string, new_feature: any) {
+              console.log("✏️ update_feature called for layer:", layerId, "feature:", id);
+              const controller = (window as any).annotationController;
+              if (!controller) {
+                throw new Error("Annotation controller not available");
+              }
+              await controller.updateFeatureInLayer(layerId, id, new_feature);
+            }, { _rintf: true }),
+            
+            select_feature: Object.assign(async function(id: string) {
+              console.log("🎯 select_feature called for layer:", layerId, "feature:", id);
+              const controller = (window as any).annotationController;
+              if (!controller) {
+                throw new Error("Annotation controller not available");
+              }
+              await controller.selectFeatureInLayer(layerId, id);
+            }, { _rintf: true }),
+            
+            select_features: Object.assign(async function(ids: string[]) {
+              console.log("🎯 select_features called for layer:", layerId, "features:", ids);
+              const controller = (window as any).annotationController;
+              if (!controller) {
+                throw new Error("Annotation controller not available");
+              }
+              await controller.selectFeaturesInLayer(layerId, ids);
+            }, { _rintf: true }),
+            
+            update_config: Object.assign(async function(config: any) {
+              console.log("⚙️ update_config called for layer:", layerId, "config:", config);
+              const controller = (window as any).annotationController;
+              if (!controller) {
+                throw new Error("Annotation controller not available");
+              }
+              await controller.updateLayerConfig(layerId, config);
+            }, { _rintf: true })
+          };
+
+          console.log("✅ Annotation layer created successfully:", layerId);
+          return layerAPI;
+        } catch (error) {
+          console.error("❌ Error creating annotation layer:", error);
+          throw new Error(`Failed to create annotation layer: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      },
+
+      async get_layers() {
+        console.log("📋 get_layers called via HyphaCore API");
+        try {
+          const annotationController = (window as any).annotationController;
+          if (annotationController) {
+            const layers = await annotationController.getAllLayers();
+            return {
+              success: true,
+              layers: layers
+            };
+          }
+          return {
+            success: true,
+            layers: []
+          };
+        } catch (error) {
+          console.error("❌ Error getting layers:", error);
+          throw new Error(`Failed to get layers: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      },
+
+      async remove_layer(layerId: string) {
+        console.log("🗑️ remove_layer called via HyphaCore API:", layerId);
+        try {
+          const annotationController = (window as any).annotationController;
+          if (annotationController) {
+            await annotationController.removeLayer(layerId);
+            return {
+              success: true,
+              message: "Layer removed successfully"
+            };
+          }
+          throw new Error("Annotation controller not available");
+        } catch (error) {
+          console.error("❌ Error removing layer:", error);
+          throw new Error(`Failed to remove layer: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      },
+
+      async get_layer(layerId: string) {
+        console.log("🔍 get_layer called via HyphaCore API:", layerId);
+        try {
+          const annotationController = (window as any).annotationController;
+          if (annotationController) {
+            const features = await annotationController.getLayerFeatures(layerId);
+            const layers = await annotationController.getAllLayers();
+            const layerInfo = layers.find((l: any) => l.id === layerId);
+            
+            if (!layerInfo) {
+              throw new Error(`Layer with ID ${layerId} not found`);
+            }
+
+            // Return layer API object similar to add_shapes return value with _rintf marked functions
+            const layerAPI = {
+              id: layerId,
+              name: layerInfo.name,
+              
+              get_features: Object.assign(async function() {
+                return await annotationController.getLayerFeatures(layerId);
+              }, { _rintf: true }),
+              
+              set_features: Object.assign(async function(features: any[]) {
+                await annotationController.setLayerFeatures(layerId, features);
+              }, { _rintf: true }),
+              
+              add_feature: Object.assign(async function(feature: any) {
+                await annotationController.addFeatureToLayer(layerId, feature);
+              }, { _rintf: true }),
+              
+              add_features: Object.assign(async function(features: any[]) {
+                await annotationController.addFeaturesToLayer(layerId, features);
+              }, { _rintf: true }),
+              
+              remove_feature: Object.assign(async function(id: string) {
+                await annotationController.removeFeatureFromLayer(layerId, id);
+              }, { _rintf: true }),
+              
+              remove_features: Object.assign(async function(ids: string[]) {
+                await annotationController.removeFeaturesFromLayer(layerId, ids);
+              }, { _rintf: true }),
+              
+              clear_features: Object.assign(async function() {
+                await annotationController.clearLayerFeatures(layerId);
+              }, { _rintf: true }),
+              
+              update_feature: Object.assign(async function(id: string, new_feature: any) {
+                await annotationController.updateFeatureInLayer(layerId, id, new_feature);
+              }, { _rintf: true }),
+              
+              select_feature: Object.assign(async function(id: string) {
+                await annotationController.selectFeatureInLayer(layerId, id);
+              }, { _rintf: true }),
+              
+              select_features: Object.assign(async function(ids: string[]) {
+                await annotationController.selectFeaturesInLayer(layerId, ids);
+              }, { _rintf: true }),
+              
+              update_config: Object.assign(async function(config: any) {
+                await annotationController.updateLayerConfig(layerId, config);
+              }, { _rintf: true })
+            };
+
+            return {
+              success: true,
+              layer: layerAPI,
+              info: layerInfo
+            };
+          }
+          throw new Error("Annotation controller not available");
+        } catch (error) {
+          console.error("❌ Error getting layer:", error);
+          throw new Error(`Failed to get layer: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      },
       
       async setViewState(viewState: vizarr.ViewState) {
         console.log("🗺️ setViewState called via HyphaCore API:", viewState);
