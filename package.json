@@ -20,7 +20,7 @@
     "test:all": "npm run test:unit && npm run test",
     "lint": "biome ci",
     "fix": "biome check --write",
-    "check": "tsc"
+    "check": "tsc && tsc --project tsconfig.test.json"
   },
   "dependencies": {
     "@deck.gl-community/editable-layers": "^9.0.3",

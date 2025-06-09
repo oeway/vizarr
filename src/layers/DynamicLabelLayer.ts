@@ -23,8 +23,7 @@ export interface DynamicLabelLayerProps extends CompositeLayerProps {
  */
 export class DynamicLabelLayer extends CompositeLayer<DynamicLabelLayerProps> {
   static layerName = "VizarrDynamicLabelLayer";
-  // @ts-expect-error - only way to extend the base state type
-  state!: { colorTexture: Texture } & CompositeLayer["state"];
+  declare state: { colorTexture: Texture } & CompositeLayer["state"];
 
   updateState({ props, oldProps, changeFlags, ...rest }: UpdateParameters<this>): void {
     super.updateState({ props, oldProps, changeFlags, ...rest });

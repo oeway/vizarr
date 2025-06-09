@@ -31,6 +31,7 @@ async function normalizeStore(source: string | zarr.Readable): Promise<zarr.Loca
     if (source.endsWith(".json")) {
       // import custom store implementation
       const [{ default: ReferenceStore }, json] = await Promise.all([
+        // @ts-ignore - Module resolution issue with @zarrita/storage/ref
         import("@zarrita/storage/ref"),
         fetch(source).then((res) => res.json()),
       ]);

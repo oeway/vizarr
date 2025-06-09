@@ -43,8 +43,7 @@ type LabelPixelData = {
 
 export class LabelLayer extends TileLayer<LabelPixelData, LabelLayerProps> {
   static layerName = "VizarrLabelLayer";
-  // @ts-expect-error - only way to extend the base state type
-  state!: { colorTexture: Texture } & TileLayer["state"];
+  declare state: { colorTexture: Texture } & TileLayer["state"];
 
   constructor(props: LabelLayerProps) {
     const resolutions = props.loader;
@@ -138,8 +137,7 @@ export class LabelLayer extends TileLayer<LabelPixelData, LabelLayerProps> {
 
 export class GrayscaleBitmapLayer extends BitmapLayer<{ pixelData: LabelPixelData; colorTexture: Texture }> {
   static layerName = "VizarrGrayscaleBitmapLayer";
-  // @ts-expect-error - only way to extend the base state type
-  state!: { texture: Texture } & BitmapLayer["state"];
+  declare state: { texture: Texture } & BitmapLayer["state"];
 
   getShaders() {
     const sampler = (
