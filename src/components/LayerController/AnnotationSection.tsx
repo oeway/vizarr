@@ -16,13 +16,19 @@ import {
   ListItemText,
   ListItemButton,
   Chip,
-  Box
+  Box,
+  Slider,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button
 } from '@mui/material';
 import {
   Navigation as CursorIcon,
   ControlCamera as SelectIcon,
   Edit as PencilIcon,
-
+  Brush as BrushIcon,
   Undo,
   Delete,
   Hexagon as PolygonIcon,
@@ -35,10 +41,17 @@ import {
   ExpandMore as ExpandMoreIcon,
   Layers as LayersIcon,
   Visibility,
-  VisibilityOff
+  VisibilityOff,
+  Category as VectorIcon,
+  Image as LabelIcon,
+  CleaningServices as EraserIcon
 } from '@mui/icons-material';
 import { makeStyles } from '@mui/styles';
 import { ViewMode, DrawPolygonMode, DrawRectangleMode, DrawPointMode, DrawLineStringMode, ModifyMode, EditableGeoJsonLayer } from '@deck.gl-community/editable-layers';
+import { DynamicLabelLayer } from '../../layers/DynamicLabelLayer';
+import { BrushRasterizer } from '../../utils/BrushRasterizer';
+import { Matrix4 } from 'math.gl';
+import { DrawBrushStrokeMode } from '../../modes/DrawBrushStrokeMode';
 
 const useStyles = makeStyles({
   section: {
@@ -126,23 +139,65 @@ const useStyles = makeStyles({
 interface AnnotationLayer {
   id: string;
   name: string;
+  type: 'vector' | 'label';
   features: any[];
   visible: boolean;
   selectedFeatureIndexes: number[];
+  // Label-specific properties
+  labelData?: Uint8Array;
+  width?: number;
+  height?: number;
+  bounds?: [number, number, number, number];
+  dataVersion?: number; // For tracking pixel data updates
 }
 
 interface AnnotationSectionProps {
   onLayersChange: (layers: any[]) => void;
 }
 
+interface LayerHistoryState {
+  layers: AnnotationLayer[];
+  selectedLayerId: string | undefined;
+}
+
 const AnnotationSection: React.FC<AnnotationSectionProps> = ({ onLayersChange }) => {
   const classes = useStyles();
   const [annotationLayers, setAnnotationLayers] = useState<AnnotationLayer[]>([]);
   const [selectedLayerId, setSelectedLayerId] = useState<string | undefined>();
-  const [currentMode, setCurrentMode] = useState<'view' | 'draw' | 'select'>('view');
+  const [currentMode, setCurrentMode] = useState<'view' | 'draw' | 'select' | 'brush' | 'eraser'>('view');
   const [currentShape, setCurrentShape] = useState<string>('polygon');
   const [currentDrawMode, setCurrentDrawMode] = useState<'click' | 'drag'>('click');
+  const [brushSize, setBrushSize] = useState<number>(10);
+  const [brushLabelValue, setBrushLabelValue] = useState<number>(1);
   const deckLayersRef = useRef<EditableGeoJsonLayer[]>([]);
+  const brushRasterizersRef = useRef<Map<string, BrushRasterizer>>(new Map());
+  
+  // History state for undo/redo functionality
+  const [history, setHistory] = useState<LayerHistoryState[]>([]);
+  const [historyIndex, setHistoryIndex] = useState<number>(-1);
+  
+  // Save current state to history
+  const saveToHistory = useCallback(() => {
+    const currentState: LayerHistoryState = {
+      layers: annotationLayers.map(layer => ({
+        ...layer,
+        features: [...layer.features],
+        labelData: layer.labelData ? new Uint8Array(layer.labelData) : undefined
+      })),
+      selectedLayerId
+    };
+    
+    setHistory(prev => {
+      // Remove any future history beyond current index
+      const newHistory = prev.slice(0, historyIndex + 1);
+      // Add new state
+      newHistory.push(currentState);
+      // Limit history size to prevent memory issues
+      return newHistory.slice(-50); // Keep last 50 states
+    });
+    
+    setHistoryIndex(prev => Math.min(prev + 1, 49)); // Max index of 49
+  }, [annotationLayers, selectedLayerId, historyIndex]);
 
   // Expose annotation controller methods to global window for API access
   React.useEffect(() => {
@@ -160,9 +215,17 @@ const AnnotationSection: React.FC<AnnotationSectionProps> = ({ onLayersChange })
         return annotationLayers.map(layer => ({
           id: layer.id,
           name: layer.name,
+          type: layer.type,
           featureCount: layer.features.length,
           visible: layer.visible,
-          selected: layer.id === selectedLayerId
+          selected: layer.id === selectedLayerId,
+          // Label-specific info
+          ...(layer.type === 'label' && {
+            width: layer.width,
+            height: layer.height,
+            bounds: layer.bounds,
+            dataVersion: layer.dataVersion
+          })
         }));
       },
 
@@ -290,6 +353,240 @@ const AnnotationSection: React.FC<AnnotationSectionProps> = ({ onLayersChange })
             ? { ...layer, ...config }
             : layer
         ));
+      },
+
+      // ==================== LABEL LAYER METHODS ====================
+
+      async getLabelData(layerId: string) {
+        console.log('API: Getting label data for layer:', layerId);
+        const layer = annotationLayers.find(l => l.id === layerId);
+        if (!layer || layer.type !== 'label') {
+          throw new Error(`Label layer with ID ${layerId} not found`);
+        }
+        return layer.labelData || new Uint8Array(0);
+      },
+
+      async setLabelData(layerId: string, data: Uint8Array | number[]) {
+        console.log('API: Setting label data for layer:', layerId, 'data length:', data.length);
+        const dataArray = data instanceof Uint8Array ? data : new Uint8Array(data);
+        
+        setAnnotationLayers(prev => prev.map(layer => {
+          if (layer.id === layerId && layer.type === 'label') {
+            return { 
+              ...layer, 
+              labelData: dataArray,
+              dataVersion: (layer.dataVersion || 0) + 1
+            };
+          }
+          return layer;
+        }));
+        
+        // Save to history after setting data
+        setTimeout(() => saveToHistory(), 0);
+      },
+
+      async clearLabelData(layerId: string) {
+        console.log('API: Clearing label data for layer:', layerId);
+        const layer = annotationLayers.find(l => l.id === layerId);
+        if (!layer || layer.type !== 'label') {
+          throw new Error(`Label layer with ID ${layerId} not found`);
+        }
+        
+        const clearedData = new Uint8Array(layer.width! * layer.height!);
+        setAnnotationLayers(prev => prev.map(l => {
+          if (l.id === layerId) {
+            return { 
+              ...l, 
+              labelData: clearedData,
+              dataVersion: (l.dataVersion || 0) + 1
+            };
+          }
+          return l;
+        }));
+        
+        // Save to history after clearing
+        setTimeout(() => saveToHistory(), 0);
+      },
+
+      async paintBrush(layerId: string, coordinates: number[][], brushSize: number = 10, labelValue: number = 1) {
+        console.log('API: Paint brush for layer:', layerId, 'points:', coordinates.length);
+        const layer = annotationLayers.find(l => l.id === layerId);
+        if (!layer || layer.type !== 'label') {
+          throw new Error(`Label layer with ID ${layerId} not found`);
+        }
+
+        // Create a brush stroke for rasterization
+        const brushStroke = {
+          coordinates: coordinates,
+          brushSize: brushSize,
+          labelValue: labelValue,
+          mode: 'paint' as 'paint' | 'erase'
+        };
+
+        // Get or create brush rasterizer for this layer
+        if (!brushRasterizersRef.current.get(layer.id) && layer.width && layer.height && layer.bounds) {
+          brushRasterizersRef.current.set(layer.id, new BrushRasterizer({
+            width: layer.width,
+            height: layer.height,
+            bounds: layer.bounds
+          }));
+        }
+
+        const rasterizer = brushRasterizersRef.current.get(layer.id);
+        if (rasterizer && layer.bounds) {
+          // Initialize rasterizer with current label data
+          rasterizer.setPixelData(layer.labelData!);
+          
+          // For API calls, use the image bounds as viewer bounds (1:1 mapping)
+          const viewerBounds: [number, number, number, number] = layer.bounds;
+          const result = rasterizer.rasterizeStroke(brushStroke, viewerBounds, layer.bounds);
+          
+          // Update the layer's label data
+          setAnnotationLayers(prev => prev.map(l => {
+            if (l.id === layer.id) {
+              return { 
+                ...l, 
+                labelData: result.data,
+                dataVersion: (l.dataVersion || 0) + 1
+              };
+            }
+            return l;
+          }));
+          
+          // Save to history after brush stroke
+          setTimeout(() => saveToHistory(), 0);
+        }
+      },
+
+      async eraseBrush(layerId: string, coordinates: number[][], brushSize: number = 10) {
+        console.log('API: Erase brush for layer:', layerId, 'points:', coordinates.length);
+        const layer = annotationLayers.find(l => l.id === layerId);
+        if (!layer || layer.type !== 'label') {
+          throw new Error(`Label layer with ID ${layerId} not found`);
+        }
+
+        // Create an erase stroke for rasterization
+        const brushStroke = {
+          coordinates: coordinates,
+          brushSize: brushSize,
+          labelValue: 0, // Eraser uses 0
+          mode: 'erase' as 'paint' | 'erase'
+        };
+
+        // Get or create brush rasterizer for this layer
+        if (!brushRasterizersRef.current.get(layer.id) && layer.width && layer.height && layer.bounds) {
+          brushRasterizersRef.current.set(layer.id, new BrushRasterizer({
+            width: layer.width,
+            height: layer.height,
+            bounds: layer.bounds
+          }));
+        }
+
+        const rasterizer = brushRasterizersRef.current.get(layer.id);
+        if (rasterizer && layer.bounds) {
+          // Initialize rasterizer with current label data
+          rasterizer.setPixelData(layer.labelData!);
+          
+          // For API calls, use the image bounds as viewer bounds (1:1 mapping)
+          const viewerBounds: [number, number, number, number] = layer.bounds;
+          const result = rasterizer.rasterizeStroke(brushStroke, viewerBounds, layer.bounds);
+          
+          // Update the layer's label data
+          setAnnotationLayers(prev => prev.map(l => {
+            if (l.id === layer.id) {
+              return { 
+                ...l, 
+                labelData: result.data,
+                dataVersion: (l.dataVersion || 0) + 1
+              };
+            }
+            return l;
+          }));
+          
+          // Save to history after erase stroke
+          setTimeout(() => saveToHistory(), 0);
+        }
+      },
+
+      async exportLabelImage(layerId: string, format: string = 'png') {
+        console.log('API: Export label image for layer:', layerId, 'format:', format);
+        const layer = annotationLayers.find(l => l.id === layerId);
+        if (!layer || layer.type !== 'label') {
+          throw new Error(`Label layer with ID ${layerId} not found`);
+        }
+
+        if (!layer.labelData || !layer.width || !layer.height) {
+          throw new Error(`Label layer ${layerId} has no data to export`);
+        }
+
+        // Create a canvas to render the label data
+        const canvas = document.createElement('canvas');
+        canvas.width = layer.width;
+        canvas.height = layer.height;
+        const ctx = canvas.getContext('2d')!;
+
+        // Create ImageData from label data
+        const imageData = ctx.createImageData(layer.width, layer.height);
+        for (let i = 0; i < layer.labelData.length; i++) {
+          const value = layer.labelData[i];
+          const pixelIndex = i * 4;
+          
+          // Convert label value to grayscale (for visualization)
+          const grayValue = Math.min(255, value * 50); // Scale up for visibility
+          imageData.data[pixelIndex] = grayValue;     // R
+          imageData.data[pixelIndex + 1] = grayValue; // G
+          imageData.data[pixelIndex + 2] = grayValue; // B
+          imageData.data[pixelIndex + 3] = value > 0 ? 255 : 0; // A (transparent for zero values)
+        }
+
+        // Put the image data on canvas
+        ctx.putImageData(imageData, 0, 0);
+
+        // Export as data URL
+        const mimeType = format === 'jpeg' ? 'image/jpeg' : 'image/png';
+        return canvas.toDataURL(mimeType);
+      },
+
+      async getLabelStats(layerId: string) {
+        console.log('API: Getting label stats for layer:', layerId);
+        const layer = annotationLayers.find(l => l.id === layerId);
+        if (!layer || layer.type !== 'label') {
+          throw new Error(`Label layer with ID ${layerId} not found`);
+        }
+
+        if (!layer.labelData) {
+          return {
+            totalPixels: 0,
+            nonZeroPixels: 0,
+            uniqueLabels: [],
+            labelCounts: {},
+            coverage: 0
+          };
+        }
+
+        const totalPixels = layer.labelData.length;
+        let nonZeroPixels = 0;
+        const labelCounts: Record<number, number> = {};
+        
+        // Count pixels and labels
+        for (let i = 0; i < layer.labelData.length; i++) {
+          const value = layer.labelData[i];
+          if (value > 0) {
+            nonZeroPixels++;
+          }
+          labelCounts[value] = (labelCounts[value] || 0) + 1;
+        }
+
+        const uniqueLabels = Object.keys(labelCounts).map(Number).sort((a, b) => a - b);
+        const coverage = totalPixels > 0 ? nonZeroPixels / totalPixels : 0;
+
+        return {
+          totalPixels,
+          nonZeroPixels,
+          uniqueLabels,
+          labelCounts,
+          coverage
+        };
       }
     };
 
@@ -304,10 +601,28 @@ const AnnotationSection: React.FC<AnnotationSectionProps> = ({ onLayersChange })
   }, [annotationLayers, selectedLayerId]);
 
   const selectedLayer = annotationLayers.find(layer => layer.id === selectedLayerId);
+  
+  // Handle undo - restore previous state
+  const handleUndo = useCallback(() => {
+    if (historyIndex > 0) {
+      const previousState = history[historyIndex - 1];
+      setAnnotationLayers(previousState.layers);
+      setSelectedLayerId(previousState.selectedLayerId);
+      setHistoryIndex(prev => prev - 1);
+      console.log('🔄 Undo applied - restored to history index:', historyIndex - 1);
+    }
+  }, [history, historyIndex]);
 
-  // Handle keyboard events for feature deletion
+  // Handle keyboard events for feature deletion and undo
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      // Handle Ctrl/Cmd+Z for undo
+      if ((event.metaKey || event.ctrlKey) && event.key === 'z' && !event.shiftKey) {
+        event.preventDefault();
+        handleUndo();
+        return;
+      }
+      
       // Skip if no annotation layers exist
       if (annotationLayers.length === 0) {
         return;
@@ -359,7 +674,7 @@ const AnnotationSection: React.FC<AnnotationSectionProps> = ({ onLayersChange })
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [selectedLayer, annotationLayers.length]);
+  }, [selectedLayer, annotationLayers.length, handleUndo]);
 
   // Handle double-click events to stop propagation during drawing
   useEffect(() => {
@@ -389,47 +704,50 @@ const AnnotationSection: React.FC<AnnotationSectionProps> = ({ onLayersChange })
 
   // Create deck.gl layers
   useEffect(() => {
-    const deckLayers = annotationLayers
+    const deckLayers: any[] = [];
+    
+    annotationLayers
       .filter(layer => layer.visible)
-      .map(layer => {
-        // Determine the correct mode based on current settings
-        let mode = ViewMode;
-        if (currentMode === 'draw' && layer.id === selectedLayerId) {
-          switch (currentShape) {
-            case 'rectangle':
-              mode = DrawRectangleMode;
-              break;
-            case 'point':
-              mode = DrawPointMode;
-              break;
-            case 'line':
-              mode = DrawLineStringMode;
-              break;
-            case 'polygon':
-            default:
-              mode = DrawPolygonMode;
-              break;
-          }
-        } else if (currentMode === 'select') {
-          mode = ModifyMode; // ModifyMode allows both selection and editing
-        }
-        
-        return new EditableGeoJsonLayer({
-          id: `editable-layer-${layer.id}`,
-          data: {
-            type: 'FeatureCollection',
-            features: layer.features
-          },
-          mode,
-          selectedFeatureIndexes: layer.selectedFeatureIndexes || [],
-          // Configure sublayers to disable text measurements for linestrings
-          _subLayerProps: {
-            tooltips: {
-              visible: false // Disable all tooltip text including distance measurements
+      .forEach(layer => {
+        if (layer.type === 'vector') {
+          // Handle vector layers with traditional drawing modes
+          let mode = ViewMode;
+          if (currentMode === 'draw' && layer.id === selectedLayerId) {
+            switch (currentShape) {
+              case 'rectangle':
+                mode = DrawRectangleMode;
+                break;
+              case 'point':
+                mode = DrawPointMode;
+                break;
+              case 'line':
+                mode = DrawLineStringMode;
+                break;
+              case 'polygon':
+              default:
+                mode = DrawPolygonMode;
+                break;
             }
-          },
-          // Enable clicking for selection in select mode
-          onClick: currentMode === 'select' ? (info, event) => {
+          } else if (currentMode === 'select') {
+            mode = ModifyMode; // ModifyMode allows both selection and editing
+          }
+          
+          deckLayers.push(new EditableGeoJsonLayer({
+            id: `editable-layer-${layer.id}`,
+            data: {
+              type: 'FeatureCollection',
+              features: layer.features
+            },
+            mode,
+            selectedFeatureIndexes: layer.selectedFeatureIndexes || [],
+            // Configure sublayers to disable text measurements for linestrings
+            _subLayerProps: {
+              tooltips: {
+                visible: false // Disable all tooltip text including distance measurements
+              }
+            },
+            // Enable clicking for selection in select mode
+            onClick: currentMode === 'select' ? (info, event) => {
             console.log('=== CLICK EVENT IN SELECT/EDIT MODE ===');
             console.log('🎯 Click info:', info);
             console.log('🎯 Feature index:', info.index);
@@ -507,6 +825,9 @@ const AnnotationSection: React.FC<AnnotationSectionProps> = ({ onLayersChange })
                   })));
                   return updated;
                 });
+                
+                // Save to history after adding feature
+                setTimeout(() => saveToHistory(), 0);
 
                 // Keep drawing mode active for continuous drawing
                 console.log('🎉 Feature added successfully - staying in draw mode');
@@ -613,7 +934,128 @@ const AnnotationSection: React.FC<AnnotationSectionProps> = ({ onLayersChange })
           pickable: true,
           autoHighlight: currentMode === 'select',
           highlightColor: [255, 255, 255, 128],
-        });
+        }));
+        } else if (layer.type === 'label') {
+          // Handle label layers - create both drawing vector layer and display label layer
+          
+          // 1. Create the actual label layer for display
+          if (layer.labelData && layer.width && layer.height && layer.bounds) {
+            deckLayers.push(new DynamicLabelLayer({
+              id: `label-layer-${layer.id}`,
+              pixelData: layer.labelData,
+              width: layer.width,
+              height: layer.height,
+              bounds: layer.bounds,
+              opacity: 1.0,
+              modelMatrix: new Matrix4(),
+              dataVersion: layer.dataVersion || 0,
+            }));
+          }
+          
+          // 2. Create a temporary drawing vector layer for brush strokes
+          let mode = ViewMode;
+          if ((currentMode === 'brush' || currentMode === 'eraser') && layer.id === selectedLayerId) {
+            mode = DrawBrushStrokeMode; // Use drag-based brush stroke mode
+          }
+          
+          deckLayers.push(new EditableGeoJsonLayer({
+            id: `brush-vector-${layer.id}`,
+            data: {
+              type: 'FeatureCollection',
+              features: [] // Always empty - we clear after each stroke
+            },
+            mode,
+            selectedFeatureIndexes: [],
+            modeConfig: {
+              throttleMs: 16 // ~60fps for smooth brush strokes
+            },
+            _subLayerProps: {
+              tooltips: {
+                visible: false
+              }
+            },
+            onEdit: (editInfo) => {
+              console.log('🖌️ Brush stroke edit:', editInfo.editType, 'for layer:', layer.id.slice(-8));
+              
+              // Handle brush stroke completion
+              if (editInfo.editType === 'addFeature' && layer.id === selectedLayerId && editInfo.editContext?.strokeComplete) {
+                const newFeature = editInfo.updatedData?.features?.[editInfo.updatedData.features.length - 1];
+                
+                if (newFeature && newFeature.geometry.type === 'LineString') {
+                  console.log('🖌️ Processing brush stroke with', newFeature.geometry.coordinates.length, 'points');
+                  
+                  // Get current brush settings at the time of stroke completion
+                  // This ensures fresh values instead of stale closure values
+                  const currentBrushSize = brushSize;
+                  const currentLabelValue = brushLabelValue;
+                  const currentDrawMode = currentMode;
+                  
+                  console.log('🖌️ Using brush settings:', { 
+                    size: currentBrushSize, 
+                    labelValue: currentLabelValue, 
+                    mode: currentDrawMode 
+                  });
+                  
+                  // Prepare brush stroke for rasterization
+                  const brushStroke = {
+                    coordinates: newFeature.geometry.coordinates,
+                    brushSize: currentBrushSize,
+                    labelValue: currentDrawMode === 'brush' ? currentLabelValue : 0, // 0 for eraser
+                    mode: currentDrawMode === 'brush' ? 'paint' : 'erase' as 'paint' | 'erase'
+                  };
+                  
+                                                        // Get or create brush rasterizer for this layer
+                   if (!brushRasterizersRef.current.get(layer.id) && layer.width && layer.height && layer.bounds) {
+                     brushRasterizersRef.current.set(layer.id, new BrushRasterizer({
+                       width: layer.width,
+                       height: layer.height,
+                       bounds: layer.bounds
+                     }));
+                   }
+                   
+                   const rasterizer = brushRasterizersRef.current.get(layer.id);
+                   if (rasterizer && layer.bounds) {
+                     // Initialize rasterizer with current label data
+                     rasterizer.setPixelData(layer.labelData!);
+                     
+                     // Get actual viewer bounds from the stroke coordinates
+                     // For now, use the image bounds as viewer bounds (1:1 mapping)
+                     // TODO: Get actual viewer viewport bounds for proper coordinate transformation
+                     const viewerBounds: [number, number, number, number] = layer.bounds;
+                     const result = rasterizer.rasterizeStroke(brushStroke, viewerBounds, layer.bounds);
+                     
+                     // Update the layer's label data with incremented version
+                     setAnnotationLayers(prev => prev.map(l => {
+                       if (l.id === layer.id) {
+                         return { 
+                           ...l, 
+                           labelData: result.data,
+                           dataVersion: (l.dataVersion || 0) + 1
+                         };
+                       }
+                       return l;
+                     }));
+                     
+                     // Save to history after brush stroke
+                     setTimeout(() => saveToHistory(), 0);
+                    
+                    console.log('🖌️ Brush stroke rasterized and applied to layer');
+                  }
+                  
+                  // Clear the temporary vector stroke - this should trigger a re-render
+                  // We don't store brush strokes as vector features
+                }
+              }
+            },
+            getFillColor: currentMode === 'brush' ? [255, 140, 0, 100] : [255, 100, 100, 100], // Orange for brush, red for eraser
+            getLineColor: currentMode === 'brush' ? [255, 140, 0, 200] : [255, 100, 100, 200], // Orange for brush, red for eraser
+            getLineWidth: 1, // Minimal world coordinate width
+            lineWidthMinPixels: brushSize, // Exact pixel width - zoom independent
+            lineWidthMaxPixels: brushSize, // Force consistent pixel width at all zoom levels
+            pointRadiusMinPixels: Math.max(2, brushSize / 2),
+            pickable: true,
+          }));
+        }
       });
     
     deckLayersRef.current = deckLayers;
@@ -634,28 +1076,58 @@ const AnnotationSection: React.FC<AnnotationSectionProps> = ({ onLayersChange })
     console.log('🎯 Layers with interaction modes:', 
       deckLayers.map(l => ({
         id: l.id.slice(-8),
-        mode: l.props.mode.name || 'ViewMode',
+        mode: l.props.mode?.name || 'No mode (Label Layer)',
         hasOnClick: !!l.props.onClick,
-        hasEditHandles: l.props.mode !== ViewMode && ((l.props.selectedFeatureIndexes?.length || 0) > 0)
+        hasEditHandles: l.props.mode && l.props.mode !== ViewMode && ((l.props.selectedFeatureIndexes?.length || 0) > 0)
       }))
     );
-  }, [annotationLayers, currentMode, selectedLayerId, currentShape, onLayersChange]);
+  }, [annotationLayers, currentMode, selectedLayerId, currentShape, brushSize, brushLabelValue, onLayersChange]);
 
-  // Handle adding annotation layer
+  // Handle adding annotation layer with type selection
+  const [showLayerTypeDialog, setShowLayerTypeDialog] = useState(false);
+  
   const handleAddAnnotationLayer = useCallback(() => {
+    console.log('🎯 Add annotation layer button clicked!');
+    setShowLayerTypeDialog(true);
+  }, []);
+
+  const handleCreateLayer = useCallback((layerType: 'vector' | 'label') => {
     const newLayerId = generateLayerId();
+    const layerNumber = annotationLayers.length + 1;
+    
     const newLayer: AnnotationLayer = {
       id: newLayerId,
-      name: `Annotation ${annotationLayers.length + 1}`,
+      name: layerType === 'vector' ? `Vector ${layerNumber}` : `Labels ${layerNumber}`,
+      type: layerType,
       features: [],
       visible: true,
       selectedFeatureIndexes: []
     };
 
+    // Add label-specific properties for label layers
+    if (layerType === 'label') {
+      // TODO: Get actual image dimensions from the current loaded image
+      const width = 1024; // Placeholder - should get from actual image
+      const height = 1024; // Placeholder - should get from actual image
+      newLayer.labelData = new Uint8Array(width * height); // Initialize with zeros
+      newLayer.width = width;
+      newLayer.height = height;
+      newLayer.bounds = [0, 0, width, height];
+      newLayer.dataVersion = 0; // Initialize data version
+    }
+
     setAnnotationLayers(prev => [...prev, newLayer]);
     setSelectedLayerId(newLayerId);
-    setCurrentMode('draw'); // Auto-switch to draw mode
-    console.log('Added new annotation layer:', newLayerId);
+    
+    // Auto-switch to appropriate mode based on layer type
+    if (layerType === 'vector') {
+      setCurrentMode('draw');
+    } else {
+      setCurrentMode('brush');
+    }
+    
+    setShowLayerTypeDialog(false);
+    console.log('Added new annotation layer:', newLayerId, 'type:', layerType);
   }, [annotationLayers.length, generateLayerId]);
 
   // Auto-switch to view mode when no annotation layers exist
@@ -670,7 +1142,7 @@ const AnnotationSection: React.FC<AnnotationSectionProps> = ({ onLayersChange })
   // Handle mode changes
   const handleModeChange = (event: React.MouseEvent<HTMLElement>, newMode: string) => {
     if (newMode !== null) {
-      setCurrentMode(newMode as 'view' | 'draw' | 'select');
+      setCurrentMode(newMode as 'view' | 'draw' | 'select' | 'brush' | 'eraser');
     }
   };
 
@@ -685,18 +1157,6 @@ const AnnotationSection: React.FC<AnnotationSectionProps> = ({ onLayersChange })
   const handleDrawModeChange = (event: React.MouseEvent<HTMLElement>, newDrawMode: string) => {
     if (newDrawMode !== null) {
       setCurrentDrawMode(newDrawMode as any);
-    }
-  };
-
-  // Handle undo - remove last feature
-  const handleUndo = () => {
-    if (selectedLayer && selectedLayer.features.length > 0) {
-      const newFeatures = selectedLayer.features.slice(0, -1);
-      setAnnotationLayers(prev => prev.map(layer =>
-        layer.id === selectedLayer.id
-          ? { ...layer, features: newFeatures, selectedFeatureIndexes: [] }
-          : layer
-      ));
     }
   };
 
@@ -751,7 +1211,71 @@ const AnnotationSection: React.FC<AnnotationSectionProps> = ({ onLayersChange })
   };
 
   return (
-    <Grid container direction="column" className={classes.section}>
+    <>
+      {/* Layer Type Selection Dialog */}
+      <Dialog 
+        open={showLayerTypeDialog} 
+        onClose={() => setShowLayerTypeDialog(false)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle style={{ backgroundColor: '#2c2c2c', color: 'white' }}>
+          Choose Annotation Layer Type
+        </DialogTitle>
+        <DialogContent style={{ backgroundColor: '#2c2c2c', padding: '20px' }}>
+          <Grid container spacing={2}>
+            <Grid item xs={6}>
+              <Button
+                fullWidth
+                variant="outlined"
+                onClick={() => handleCreateLayer('vector')}
+                startIcon={<VectorIcon />}
+                style={{
+                  height: '80px',
+                  flexDirection: 'column',
+                  borderColor: 'rgba(255, 140, 0, 0.5)',
+                  color: 'white'
+                }}
+              >
+                <Typography variant="body2" style={{ marginTop: '8px' }}>
+                  Vector
+                </Typography>
+                <Typography variant="caption" style={{ color: 'rgba(255, 255, 255, 0.7)' }}>
+                  Shapes & polygons
+                </Typography>
+              </Button>
+            </Grid>
+            <Grid item xs={6}>
+              <Button
+                fullWidth
+                variant="outlined"
+                onClick={() => handleCreateLayer('label')}
+                startIcon={<LabelIcon />}
+                style={{
+                  height: '80px',
+                  flexDirection: 'column',
+                  borderColor: 'rgba(255, 140, 0, 0.5)',
+                  color: 'white'
+                }}
+              >
+                <Typography variant="body2" style={{ marginTop: '8px' }}>
+                  Label
+                </Typography>
+                <Typography variant="caption" style={{ color: 'rgba(255, 255, 255, 0.7)' }}>
+                  Brush painting
+                </Typography>
+              </Button>
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions style={{ backgroundColor: '#2c2c2c' }}>
+          <Button onClick={() => setShowLayerTypeDialog(false)} style={{ color: 'white' }}>
+            Cancel
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Grid container direction="column" className={classes.section}>
       {/* Separator before annotations */}
       <Grid item>
         <Divider style={{ backgroundColor: 'rgba(255, 255, 255, 0.2)', margin: '8px 0' }} />
@@ -817,20 +1341,42 @@ const AnnotationSection: React.FC<AnnotationSectionProps> = ({ onLayersChange })
                 <CursorIcon fontSize="small" />
               </Tooltip>
             </ToggleButton>
-            <ToggleButton value="select" className={classes.toggleButton} disabled={annotationLayers.length === 0}>
-              <Tooltip title={annotationLayers.length === 0 ? "Select & Edit Mode (No annotation layers)" : "Select & Edit Mode - Click to select shapes, drag control points to edit"}>
-                <SelectIcon fontSize="small" />
-              </Tooltip>
-            </ToggleButton>
-            <ToggleButton value="draw" className={classes.toggleButton} disabled={annotationLayers.length === 0 || !selectedLayer}>
-              <Tooltip title={annotationLayers.length === 0 ? "Draw Mode (No annotation layers)" : !selectedLayer ? "Draw Mode (No layer selected)" : "Draw Mode"}>
-                <PencilIcon fontSize="small" />
-              </Tooltip>
-            </ToggleButton>
+            
+            {/* Vector layer tools */}
+            {selectedLayer?.type === 'vector' && (
+              <>
+                <ToggleButton value="select" className={classes.toggleButton} disabled={annotationLayers.length === 0}>
+                  <Tooltip title="Select & Edit Mode - Click to select shapes, drag control points to edit">
+                    <SelectIcon fontSize="small" />
+                  </Tooltip>
+                </ToggleButton>
+                <ToggleButton value="draw" className={classes.toggleButton} disabled={annotationLayers.length === 0 || !selectedLayer}>
+                  <Tooltip title="Draw Mode - Create vector shapes">
+                    <PencilIcon fontSize="small" />
+                  </Tooltip>
+                </ToggleButton>
+              </>
+            )}
+            
+            {/* Label layer tools */}
+            {selectedLayer?.type === 'label' && (
+              <>
+                <ToggleButton value="brush" className={classes.toggleButton} disabled={annotationLayers.length === 0 || !selectedLayer}>
+                  <Tooltip title="Brush Mode - Paint labels directly">
+                    <BrushIcon fontSize="small" />
+                  </Tooltip>
+                </ToggleButton>
+                <ToggleButton value="eraser" className={classes.toggleButton} disabled={annotationLayers.length === 0 || !selectedLayer}>
+                  <Tooltip title="Eraser Mode - Erase painted labels">
+                    <EraserIcon fontSize="small" />
+                  </Tooltip>
+                </ToggleButton>
+              </>
+            )}
           </ToggleButtonGroup>
           
-          <Tooltip title={annotationLayers.length === 0 ? "Undo (No annotation layers)" : "Undo (Ctrl+Z / Cmd+Z)"}>
-            <IconButton onClick={handleUndo} className={classes.iconButton} disabled={annotationLayers.length === 0 || !selectedLayer}>
+                      <Tooltip title={historyIndex <= 0 ? "Undo (No history)" : "Undo (Ctrl+Z / Cmd+Z)"}>
+                            <IconButton onClick={handleUndo} className={classes.iconButton} disabled={historyIndex <= 0}>
               <Undo fontSize="small" />
             </IconButton>
           </Tooltip>
@@ -849,8 +1395,8 @@ const AnnotationSection: React.FC<AnnotationSectionProps> = ({ onLayersChange })
         </div>
       </Grid>
 
-      {/* Shape Controls */}
-      {currentMode === 'draw' && selectedLayer && (
+      {/* Vector Shape Controls */}
+      {currentMode === 'draw' && selectedLayer && selectedLayer.type === 'vector' && (
         <Grid item>
           <Typography variant="caption" component="div" style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '10px' }}>
             Shape:
@@ -887,6 +1433,72 @@ const AnnotationSection: React.FC<AnnotationSectionProps> = ({ onLayersChange })
         </Grid>
       )}
 
+      {/* Label Brush Controls */}
+      {(currentMode === 'brush' || currentMode === 'eraser') && selectedLayer && selectedLayer.type === 'label' && (
+        <Grid item>
+          <Typography variant="caption" component="div" style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '10px' }}>
+            {currentMode === 'brush' ? 'Brush Settings:' : 'Eraser Settings:'}
+          </Typography>
+          <Box className={classes.toolGroup} sx={{ flexDirection: 'column', gap: 1 }}>
+            {/* Stroke Size */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography variant="caption" style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '10px', minWidth: '35px' }}>
+                Size:
+              </Typography>
+              <Slider
+                value={brushSize}
+                onChange={(_: Event, value: number | number[]) => setBrushSize(value as number)}
+                min={1}
+                max={50}
+                step={1}
+                valueLabelDisplay="auto"
+                size="small"
+                sx={{ 
+                  flex: 1,
+                  color: currentMode === 'brush' ? 'rgba(255, 140, 0, 0.8)' : 'rgba(255, 100, 100, 0.8)',
+                  '& .MuiSlider-valueLabel': {
+                    fontSize: '10px',
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)'
+                  }
+                }}
+              />
+              <Typography variant="caption" style={{ color: 'white', fontSize: '10px', minWidth: '25px' }}>
+                {brushSize}px
+              </Typography>
+            </Box>
+            
+            {/* Label Value - only show for brush mode */}
+            {currentMode === 'brush' && (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Typography variant="caption" style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '10px', minWidth: '35px' }}>
+                  Label:
+                </Typography>
+                <Slider
+                  value={brushLabelValue}
+                  onChange={(_: Event, value: number | number[]) => setBrushLabelValue(value as number)}
+                  min={1}
+                  max={255}
+                  step={1}
+                  valueLabelDisplay="auto"
+                  size="small"
+                  sx={{ 
+                    flex: 1,
+                    color: 'rgba(255, 140, 0, 0.8)',
+                    '& .MuiSlider-valueLabel': {
+                      fontSize: '10px',
+                      backgroundColor: 'rgba(0, 0, 0, 0.8)'
+                    }
+                  }}
+                />
+                <Typography variant="caption" style={{ color: 'white', fontSize: '10px', minWidth: '25px' }}>
+                  {brushLabelValue}
+                </Typography>
+              </Box>
+            )}
+          </Box>
+        </Grid>
+      )}
+
       {/* Annotation Layers */}
       {annotationLayers.length > 0 && (
         <Grid item>
@@ -911,7 +1523,11 @@ const AnnotationSection: React.FC<AnnotationSectionProps> = ({ onLayersChange })
                   }}
                 >
                   <ListItemIcon style={{ minWidth: '24px' }}>
-                    <LayersIcon style={{ color: 'white', fontSize: '16px' }} />
+                    {layer.type === 'vector' ? (
+                      <VectorIcon style={{ color: 'white', fontSize: '16px' }} />
+                    ) : (
+                      <LabelIcon style={{ color: 'white', fontSize: '16px' }} />
+                    )}
                   </ListItemIcon>
                   <ListItemText
                     primary={
@@ -926,7 +1542,7 @@ const AnnotationSection: React.FC<AnnotationSectionProps> = ({ onLayersChange })
                     secondary={
                       <Box display="flex" gap={0.5}>
                         <Chip
-                          label={`${layer.features.length} features`}
+                          label={layer.type === 'vector' ? `${layer.features.length} features` : 'Label layer'}
                           className={classes.layerChip}
                           size="small"
                         />
@@ -978,6 +1594,7 @@ const AnnotationSection: React.FC<AnnotationSectionProps> = ({ onLayersChange })
         </Grid>
       )}
     </Grid>
+    </>
   );
 };
 

@@ -361,10 +361,10 @@
       </div>
 
       <div class="test-section">
-        <h3>🎨 Annotation APIs (Kaibu-style)</h3>
-        <p>Test the new annotation capabilities based on Kaibu's API design.</p>
+        <h3>🎨 Vector Annotation APIs (Kaibu-style)</h3>
+        <p>Test vector-based annotation capabilities (polygons, lines, points).</p>
         <div class="button-grid">
-          <button onclick="testAddShapes()">Create Annotation Layer</button>
+          <button onclick="testAddShapes()">Create Vector Layer</button>
           <button onclick="testGetLayers()">List All Layers</button>
           <button onclick="testLayerFeatures()">Test Layer Features</button>
           <button onclick="testFeatureSelection()">Test Feature Selection</button>
@@ -372,6 +372,20 @@
           <button onclick="testComplexAnnotations()">Complex Annotation Test</button>
         </div>
         <div id="annotationStatus" class="window-status">No annotation layers created yet</div>
+      </div>
+
+      <div class="test-section">
+        <h3>🖌️ Label Annotation APIs (Brush-based)</h3>
+        <p>Test label-based annotation capabilities (brush painting, erasing, rasterized data).</p>
+        <div class="button-grid">
+          <button onclick="testAddLabels()">Create Label Layer</button>
+          <button onclick="testBrushPainting()">Test Brush Painting</button>
+          <button onclick="testLabelData()">Test Label Data</button>
+          <button onclick="testLabelExport()">Test Label Export</button>
+          <button onclick="testLabelStats()">Test Label Statistics</button>
+          <button onclick="testComplexLabels()">Complex Label Test</button>
+        </div>
+        <div id="labelStatus" class="window-status">No label layers created yet</div>
         <div id="window-container"></div>
       </div>
       
@@ -549,17 +563,32 @@
 
       // Global variables for annotation testing
       let currentViewer = null;
-      let testLayers = [];
+      let testLayers = []; // Vector layers
+      let testLabelLayers = []; // Label layers
       
       // Update annotation status
       function updateAnnotationStatus() {
         const statusDiv = document.getElementById('annotationStatus');
         if (testLayers.length > 0) {
-          statusDiv.textContent = `Active annotation layers: ${testLayers.length}`;
+          statusDiv.textContent = `Active vector layers: ${testLayers.length}`;
           statusDiv.style.background = '#d4edda';
           statusDiv.style.color = '#155724';
         } else {
-          statusDiv.textContent = 'No annotation layers created yet';
+          statusDiv.textContent = 'No vector layers created yet';
+          statusDiv.style.background = '#f8fafc';
+          statusDiv.style.color = '#4a5568';
+        }
+      }
+
+      // Update label status
+      function updateLabelStatus() {
+        const statusDiv = document.getElementById('labelStatus');
+        if (testLabelLayers.length > 0) {
+          statusDiv.textContent = `Active label layers: ${testLabelLayers.length}`;
+          statusDiv.style.background = '#d4edda';
+          statusDiv.style.color = '#155724';
+        } else {
+          statusDiv.textContent = 'No label layers created yet';
           statusDiv.style.background = '#f8fafc';
           statusDiv.style.color = '#4a5568';
         }
@@ -860,10 +889,270 @@
           log(`❌ Complex annotation test failed: ${error.message}`, "error");
         }
       }
+
+      // ==================== LABEL LAYER TESTS ====================
+
+      // Test 1: Create label layer with add_labels
+      async function testAddLabels() {
+        try {
+          const result = await window.initPromise;
+          if (!result.success) {
+            throw new Error(result.error);
+          }
+
+          const viewer = await ensureViewer();
+          log("Testing add_labels API...");
+
+          // Create a label layer for brush painting
+          const labelLayer = await viewer.add_labels({
+            name: "Test Label Layer",
+            width: 512,
+            height: 512,
+            bounds: [0, 0, 512, 512]
+          });
+
+          testLabelLayers.push(labelLayer);
+          log(`✅ Created label layer: ${labelLayer.name} (ID: ${labelLayer.id})`, "success");
+          log(`Label layer dimensions: ${labelLayer.width}x${labelLayer.height}`);
+          log(`Label API methods: ${Object.keys(labelLayer).filter(k => typeof labelLayer[k] === 'function').join(', ')}`);
+          
+          updateLabelStatus();
+
+        } catch (error) {
+          log(`❌ add_labels test failed: ${error.message}`, "error");
+        }
+      }
+
+      // Test 2: Test brush painting functionality
+      async function testBrushPainting() {
+        try {
+          if (testLabelLayers.length === 0) {
+            throw new Error("No label layers available. Run 'Create Label Layer' first.");
+          }
+
+          const labelLayer = testLabelLayers[0];
+          log(`Testing brush painting on layer: ${labelLayer.name}`);
+
+          // Paint some brush strokes
+          const brushStrokes = [
+            // Draw a line
+            [[100, 100], [150, 100], [200, 100], [250, 100]],
+            // Draw a curve
+            [[100, 150], [120, 130], [140, 160], [160, 140], [180, 170]],
+            // Draw a circle-like pattern
+            [[200, 200], [210, 190], [220, 200], [210, 210], [200, 200]]
+          ];
+
+          for (let i = 0; i < brushStrokes.length; i++) {
+            const stroke = brushStrokes[i];
+            const brushSize = 10 + (i * 5); // Varying brush sizes
+            const labelValue = i + 1; // Different label values
+            
+            await labelLayer.paint_brush(stroke, brushSize, labelValue);
+            log(`✅ Painted brush stroke ${i + 1} with size ${brushSize} and value ${labelValue}`, "success");
+          }
+
+          // Test erasing
+          const eraseStroke = [[150, 125], [175, 125], [200, 125]];
+          await labelLayer.erase_brush(eraseStroke, 15);
+          log(`✅ Erased brush stroke with size 15`, "success");
+
+        } catch (error) {
+          log(`❌ Brush painting test failed: ${error.message}`, "error");
+        }
+      }
+
+      // Test 3: Test label data operations
+      async function testLabelData() {
+        try {
+          if (testLabelLayers.length === 0) {
+            throw new Error("No label layers available. Run 'Create Label Layer' first.");
+          }
+
+          const labelLayer = testLabelLayers[0];
+          log(`Testing label data operations on layer: ${labelLayer.name}`);
+
+          // Get current label data
+          const labelData = await labelLayer.get_label_data();
+          log(`✅ Retrieved label data: ${labelData.length} pixels`, "success");
+
+          // Count non-zero pixels
+          const nonZeroPixels = labelData.filter(pixel => pixel > 0).length;
+          log(`✅ Non-zero pixels: ${nonZeroPixels}`, "success");
+
+          // Create custom label data pattern
+          const customData = new Uint8Array(labelLayer.width * labelLayer.height);
+          // Create a simple diagonal pattern
+          for (let y = 0; y < labelLayer.height; y++) {
+            for (let x = 0; x < labelLayer.width; x++) {
+              const index = y * labelLayer.width + x;
+              if ((x + y) % 20 < 10) {
+                customData[index] = 2; // Label value 2 for diagonal pattern
+              }
+            }
+          }
+
+          // Set the custom data
+          await labelLayer.set_label_data(customData);
+          log(`✅ Set custom diagonal pattern data`, "success");
+
+          // Verify the data was set
+          const verifyData = await labelLayer.get_label_data();
+          const diagonalPixels = verifyData.filter(pixel => pixel === 2).length;
+          log(`✅ Verified diagonal pattern: ${diagonalPixels} pixels with value 2`, "success");
+
+        } catch (error) {
+          log(`❌ Label data test failed: ${error.message}`, "error");
+        }
+      }
+
+      // Test 4: Test label export functionality
+      async function testLabelExport() {
+        try {
+          if (testLabelLayers.length === 0) {
+            throw new Error("No label layers available. Run 'Create Label Layer' first.");
+          }
+
+          const labelLayer = testLabelLayers[0];
+          log(`Testing label export on layer: ${labelLayer.name}`);
+
+          // Export as PNG
+          const pngData = await labelLayer.export_label_image('png');
+          log(`✅ Exported label as PNG: ${pngData.byteLength || pngData.length} bytes`, "success");
+
+          // Export as different format if supported
+          try {
+            const jpegData = await labelLayer.export_label_image('jpeg');
+            log(`✅ Exported label as JPEG: ${jpegData.byteLength || jpegData.length} bytes`, "success");
+          } catch (formatError) {
+            log(`ℹ️ JPEG export not supported: ${formatError.message}`);
+          }
+
+          // If we got a data URL, we can create a download link for testing
+          if (typeof pngData === 'string' && pngData.startsWith('data:')) {
+            const link = document.createElement('a');
+            link.href = pngData;
+            link.download = `label-export-${Date.now()}.png`;
+            link.textContent = 'Download Label Image';
+            link.style.display = 'block';
+            link.style.margin = '10px 0';
+            link.style.color = '#007bff';
+            document.getElementById('results').appendChild(link);
+            log(`✅ Created download link for exported image`, "success");
+          }
+
+        } catch (error) {
+          log(`❌ Label export test failed: ${error.message}`, "error");
+        }
+      }
+
+      // Test 5: Test label statistics
+      async function testLabelStats() {
+        try {
+          if (testLabelLayers.length === 0) {
+            throw new Error("No label layers available. Run 'Create Label Layer' first.");
+          }
+
+          const labelLayer = testLabelLayers[0];
+          log(`Testing label statistics on layer: ${labelLayer.name}`);
+
+          const stats = await labelLayer.get_label_stats();
+          log(`✅ Label statistics:`, "success");
+          
+          if (stats.totalPixels) {
+            log(`  Total pixels: ${stats.totalPixels}`);
+          }
+          if (stats.nonZeroPixels) {
+            log(`  Non-zero pixels: ${stats.nonZeroPixels}`);
+          }
+          if (stats.labelCounts) {
+            log(`  Label counts: ${JSON.stringify(stats.labelCounts)}`);
+          }
+          if (stats.uniqueLabels) {
+            log(`  Unique labels: ${stats.uniqueLabels.join(', ')}`);
+          }
+          if (stats.coverage) {
+            log(`  Coverage: ${(stats.coverage * 100).toFixed(2)}%`);
+          }
+
+        } catch (error) {
+          log(`❌ Label statistics test failed: ${error.message}`, "error");
+        }
+      }
+
+      // Test 6: Complex label workflow
+      async function testComplexLabels() {
+        try {
+          const result = await window.initPromise;
+          if (!result.success) {
+            throw new Error(result.error);
+          }
+
+          const viewer = await ensureViewer();
+          log("Running complex label workflow test...");
+
+          // Step 1: Create multiple label layers
+          const primaryLayer = await viewer.add_labels({
+            name: "Primary Labels",
+            width: 256,
+            height: 256,
+            bounds: [0, 0, 256, 256]
+          });
+
+          const maskLayer = await viewer.add_labels({
+            name: "Mask Layer",
+            width: 256,
+            height: 256,
+            bounds: [0, 0, 256, 256]
+          });
+
+          testLabelLayers.push(primaryLayer, maskLayer);
+          log(`✅ Created ${testLabelLayers.length} label layers`, "success");
+
+          // Step 2: Paint different patterns
+          // Primary layer - paint some regions
+          await primaryLayer.paint_brush([[50, 50], [100, 50], [100, 100], [50, 100]], 20, 1);
+          await primaryLayer.paint_brush([[150, 150], [200, 150], [200, 200], [150, 200]], 15, 2);
+          
+          // Mask layer - create a mask
+          await maskLayer.paint_brush([[0, 0], [256, 0], [256, 256], [0, 256]], 5, 1);
+          
+          log(`✅ Painted patterns on both layers`, "success");
+
+          // Step 3: Test data operations
+          const primaryData = await primaryLayer.get_label_data();
+          const maskData = await maskLayer.get_label_data();
+          
+          // Combine data (simple AND operation)
+          const combinedData = new Uint8Array(primaryData.length);
+          for (let i = 0; i < primaryData.length; i++) {
+            combinedData[i] = (primaryData[i] > 0 && maskData[i] > 0) ? primaryData[i] : 0;
+          }
+          
+          // Set combined data to primary layer
+          await primaryLayer.set_label_data(combinedData);
+          log(`✅ Combined label data from both layers`, "success");
+
+          // Step 4: Export results
+          const exportData = await primaryLayer.export_label_image('png');
+          log(`✅ Exported combined result: ${exportData.byteLength || exportData.length} bytes`, "success");
+
+          // Step 5: Get final statistics
+          const finalStats = await primaryLayer.get_label_stats();
+          log(`✅ Final statistics: ${JSON.stringify(finalStats)}`, "success");
+
+          updateLabelStatus();
+          log("🎉 Complex label workflow completed successfully!", "success");
+
+        } catch (error) {
+          log(`❌ Complex label test failed: ${error.message}`, "error");
+        }
+      }
       
       // Initialize window status
       updateWindowStatus();
       updateAnnotationStatus();
+      updateLabelStatus();
     </script>
   </body>
 </html> 

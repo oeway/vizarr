@@ -251,7 +251,7 @@ const SEEN_LUTS = new WeakSet<ReadonlyArray<OmeColor>>();
  * @param options.source - The source lookup table.
  * @param options.maxTextureDimension2D - The maximum texture dimension size.
  */
-function createColorTexture(options: {
+export function createColorTexture(options: {
   source?: ReadonlyArray<OmeColor>;
   maxTextureDimension2D: number;
 }) {

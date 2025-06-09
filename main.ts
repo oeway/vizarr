@@ -99,10 +99,11 @@ async function main() {
             throw new Error("Annotation controller not available after waiting. Make sure Vizarr is fully loaded with annotation system.");
           }
 
-          console.log("✅ Annotation controller found, adding layer...");
+          console.log("✅ Annotation controller found, adding vector layer...");
           await annotationController.addAnnotationLayer({
             id: layerId,
             name: layerName,
+            type: 'vector', // Explicitly set as vector layer
             features: features,
             visible: true,
             selectedFeatureIndexes: []
@@ -112,6 +113,7 @@ async function main() {
           const layerAPI = {
             id: layerId,
             name: layerName,
+            type: 'vector',
             
             get_features: Object.assign(async function() {
               console.log("🔍 get_features called for layer:", layerId);
@@ -213,11 +215,154 @@ async function main() {
             }, { _rintf: true })
           };
 
-          console.log("✅ Annotation layer created successfully:", layerId);
+          console.log("✅ Vector annotation layer created successfully:", layerId);
           return layerAPI;
         } catch (error) {
           console.error("❌ Error creating annotation layer:", error);
           throw new Error(`Failed to create annotation layer: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      },
+
+      async add_labels(options: any = {}) {
+        console.log("🖌️ add_labels called via HyphaCore API:", options);
+        try {
+          // Create a new label layer for brush-based annotations
+          const layerId = `label-layer-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+          const layerName = options.name || `Label Layer ${Date.now()}`;
+          
+          // Default label layer dimensions and bounds
+          const width = options.width || 1024;
+          const height = options.height || 1024;
+          const bounds = options.bounds || [0, 0, width, height];
+          
+          // Create initial empty label data
+          const labelData = new Uint8Array(width * height);
+          if (options.initial_data) {
+            // If initial data provided, copy it
+            if (options.initial_data.length !== labelData.length) {
+              throw new Error(`Initial data size ${options.initial_data.length} doesn't match expected size ${labelData.length}`);
+            }
+            labelData.set(options.initial_data);
+          }
+
+          // Wait for annotation controller
+          let annotationController = (window as any).annotationController;
+          let retries = 0;
+          const maxRetries = 50;
+          
+          while (!annotationController && retries < maxRetries) {
+            console.log(`⏳ Waiting for annotation controller... (${retries + 1}/${maxRetries})`);
+            await new Promise(resolve => setTimeout(resolve, 100));
+            annotationController = (window as any).annotationController;
+            retries++;
+          }
+
+          if (!annotationController) {
+            throw new Error("Annotation controller not available after waiting. Make sure Vizarr is fully loaded with annotation system.");
+          }
+
+          console.log("✅ Annotation controller found, adding label layer...");
+          await annotationController.addAnnotationLayer({
+            id: layerId,
+            name: layerName,
+            type: 'label', // Explicitly set as label layer
+            visible: true,
+            width: width,
+            height: height,
+            bounds: bounds,
+            labelData: labelData,
+            dataVersion: 0,
+            features: [], // Label layers don't use features
+            selectedFeatureIndexes: []
+          });
+
+          // Return label layer API object with _rintf marked functions
+          const labelLayerAPI = {
+            id: layerId,
+            name: layerName,
+            type: 'label',
+            width: width,
+            height: height,
+            bounds: bounds,
+            
+            get_label_data: Object.assign(async function() {
+              console.log("🎨 get_label_data called for layer:", layerId);
+              const controller = (window as any).annotationController;
+              if (!controller) {
+                throw new Error("Annotation controller not available");
+              }
+              return await controller.getLabelData(layerId);
+            }, { _rintf: true }),
+            
+            set_label_data: Object.assign(async function(data: Uint8Array | number[]) {
+              console.log("🎨 set_label_data called for layer:", layerId, "data length:", data.length);
+              const controller = (window as any).annotationController;
+              if (!controller) {
+                throw new Error("Annotation controller not available");
+              }
+              await controller.setLabelData(layerId, data);
+            }, { _rintf: true }),
+            
+            clear_labels: Object.assign(async function() {
+              console.log("🧹 clear_labels called for layer:", layerId);
+              const controller = (window as any).annotationController;
+              if (!controller) {
+                throw new Error("Annotation controller not available");
+              }
+              await controller.clearLabelData(layerId);
+            }, { _rintf: true }),
+            
+            paint_brush: Object.assign(async function(coordinates: number[][], brushSize: number = 10, labelValue: number = 1) {
+              console.log("🖌️ paint_brush called for layer:", layerId, "points:", coordinates.length);
+              const controller = (window as any).annotationController;
+              if (!controller) {
+                throw new Error("Annotation controller not available");
+              }
+              await controller.paintBrush(layerId, coordinates, brushSize, labelValue);
+            }, { _rintf: true }),
+            
+            erase_brush: Object.assign(async function(coordinates: number[][], brushSize: number = 10) {
+              console.log("🧽 erase_brush called for layer:", layerId, "points:", coordinates.length);
+              const controller = (window as any).annotationController;
+              if (!controller) {
+                throw new Error("Annotation controller not available");
+              }
+              await controller.eraseBrush(layerId, coordinates, brushSize);
+            }, { _rintf: true }),
+            
+            export_label_image: Object.assign(async function(format: string = 'png') {
+              console.log("📸 export_label_image called for layer:", layerId, "format:", format);
+              const controller = (window as any).annotationController;
+              if (!controller) {
+                throw new Error("Annotation controller not available");
+              }
+              return await controller.exportLabelImage(layerId, format);
+            }, { _rintf: true }),
+            
+            get_label_stats: Object.assign(async function() {
+              console.log("📊 get_label_stats called for layer:", layerId);
+              const controller = (window as any).annotationController;
+              if (!controller) {
+                throw new Error("Annotation controller not available");
+              }
+              return await controller.getLabelStats(layerId);
+            }, { _rintf: true }),
+            
+            update_config: Object.assign(async function(config: any) {
+              console.log("⚙️ update_config called for label layer:", layerId, "config:", config);
+              const controller = (window as any).annotationController;
+              if (!controller) {
+                throw new Error("Annotation controller not available");
+              }
+              await controller.updateLayerConfig(layerId, config);
+            }, { _rintf: true })
+          };
+
+          console.log("✅ Label annotation layer created successfully:", layerId);
+          return labelLayerAPI;
+        } catch (error) {
+          console.error("❌ Error creating label layer:", error);
+          throw new Error(`Failed to create label layer: ${error instanceof Error ? error.message : String(error)}`);
         }
       },
 
@@ -265,7 +410,6 @@ async function main() {
         try {
           const annotationController = (window as any).annotationController;
           if (annotationController) {
-            const features = await annotationController.getLayerFeatures(layerId);
             const layers = await annotationController.getAllLayers();
             const layerInfo = layers.find((l: any) => l.id === layerId);
             
@@ -273,55 +417,106 @@ async function main() {
               throw new Error(`Layer with ID ${layerId} not found`);
             }
 
-            // Return layer API object similar to add_shapes return value with _rintf marked functions
-            const layerAPI = {
-              id: layerId,
-              name: layerInfo.name,
-              
-              get_features: Object.assign(async function() {
-                return await annotationController.getLayerFeatures(layerId);
-              }, { _rintf: true }),
-              
-              set_features: Object.assign(async function(features: any[]) {
-                await annotationController.setLayerFeatures(layerId, features);
-              }, { _rintf: true }),
-              
-              add_feature: Object.assign(async function(feature: any) {
-                await annotationController.addFeatureToLayer(layerId, feature);
-              }, { _rintf: true }),
-              
-              add_features: Object.assign(async function(features: any[]) {
-                await annotationController.addFeaturesToLayer(layerId, features);
-              }, { _rintf: true }),
-              
-              remove_feature: Object.assign(async function(id: string) {
-                await annotationController.removeFeatureFromLayer(layerId, id);
-              }, { _rintf: true }),
-              
-              remove_features: Object.assign(async function(ids: string[]) {
-                await annotationController.removeFeaturesFromLayer(layerId, ids);
-              }, { _rintf: true }),
-              
-              clear_features: Object.assign(async function() {
-                await annotationController.clearLayerFeatures(layerId);
-              }, { _rintf: true }),
-              
-              update_feature: Object.assign(async function(id: string, new_feature: any) {
-                await annotationController.updateFeatureInLayer(layerId, id, new_feature);
-              }, { _rintf: true }),
-              
-              select_feature: Object.assign(async function(id: string) {
-                await annotationController.selectFeatureInLayer(layerId, id);
-              }, { _rintf: true }),
-              
-              select_features: Object.assign(async function(ids: string[]) {
-                await annotationController.selectFeaturesInLayer(layerId, ids);
-              }, { _rintf: true }),
-              
-              update_config: Object.assign(async function(config: any) {
-                await annotationController.updateLayerConfig(layerId, config);
-              }, { _rintf: true })
-            };
+            // Return different API objects based on layer type
+            let layerAPI;
+            
+            if (layerInfo.type === 'vector') {
+              // Vector layer API (original functionality)
+              const features = await annotationController.getLayerFeatures(layerId);
+              layerAPI = {
+                id: layerId,
+                name: layerInfo.name,
+                type: 'vector',
+                
+                get_features: Object.assign(async function() {
+                  return await annotationController.getLayerFeatures(layerId);
+                }, { _rintf: true }),
+                
+                set_features: Object.assign(async function(features: any[]) {
+                  await annotationController.setLayerFeatures(layerId, features);
+                }, { _rintf: true }),
+                
+                add_feature: Object.assign(async function(feature: any) {
+                  await annotationController.addFeatureToLayer(layerId, feature);
+                }, { _rintf: true }),
+                
+                add_features: Object.assign(async function(features: any[]) {
+                  await annotationController.addFeaturesToLayer(layerId, features);
+                }, { _rintf: true }),
+                
+                remove_feature: Object.assign(async function(id: string) {
+                  await annotationController.removeFeatureFromLayer(layerId, id);
+                }, { _rintf: true }),
+                
+                remove_features: Object.assign(async function(ids: string[]) {
+                  await annotationController.removeFeaturesFromLayer(layerId, ids);
+                }, { _rintf: true }),
+                
+                clear_features: Object.assign(async function() {
+                  await annotationController.clearLayerFeatures(layerId);
+                }, { _rintf: true }),
+                
+                update_feature: Object.assign(async function(id: string, new_feature: any) {
+                  await annotationController.updateFeatureInLayer(layerId, id, new_feature);
+                }, { _rintf: true }),
+                
+                select_feature: Object.assign(async function(id: string) {
+                  await annotationController.selectFeatureInLayer(layerId, id);
+                }, { _rintf: true }),
+                
+                select_features: Object.assign(async function(ids: string[]) {
+                  await annotationController.selectFeaturesInLayer(layerId, ids);
+                }, { _rintf: true }),
+                
+                update_config: Object.assign(async function(config: any) {
+                  await annotationController.updateLayerConfig(layerId, config);
+                }, { _rintf: true })
+              };
+            } else if (layerInfo.type === 'label') {
+              // Label layer API (brush-based functionality)
+              layerAPI = {
+                id: layerId,
+                name: layerInfo.name,
+                type: 'label',
+                width: layerInfo.width,
+                height: layerInfo.height,
+                bounds: layerInfo.bounds,
+                
+                get_label_data: Object.assign(async function() {
+                  return await annotationController.getLabelData(layerId);
+                }, { _rintf: true }),
+                
+                set_label_data: Object.assign(async function(data: Uint8Array | number[]) {
+                  await annotationController.setLabelData(layerId, data);
+                }, { _rintf: true }),
+                
+                clear_labels: Object.assign(async function() {
+                  await annotationController.clearLabelData(layerId);
+                }, { _rintf: true }),
+                
+                paint_brush: Object.assign(async function(coordinates: number[][], brushSize: number = 10, labelValue: number = 1) {
+                  await annotationController.paintBrush(layerId, coordinates, brushSize, labelValue);
+                }, { _rintf: true }),
+                
+                erase_brush: Object.assign(async function(coordinates: number[][], brushSize: number = 10) {
+                  await annotationController.eraseBrush(layerId, coordinates, brushSize);
+                }, { _rintf: true }),
+                
+                export_label_image: Object.assign(async function(format: string = 'png') {
+                  return await annotationController.exportLabelImage(layerId, format);
+                }, { _rintf: true }),
+                
+                get_label_stats: Object.assign(async function() {
+                  return await annotationController.getLabelStats(layerId);
+                }, { _rintf: true }),
+                
+                update_config: Object.assign(async function(config: any) {
+                  await annotationController.updateLayerConfig(layerId, config);
+                }, { _rintf: true })
+              };
+            } else {
+              throw new Error(`Unsupported layer type: ${layerInfo.type}`);
+            }
 
             return {
               success: true,
