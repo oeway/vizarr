@@ -164,7 +164,7 @@ export class BrushRasterizer {
     }
 
     return {
-      data: this.pixelData,
+      data: new Uint8Array(this.pixelData), // Return a copy to ensure reference changes
       changedRegion: [minX, minY, maxX, maxY],
     };
   }

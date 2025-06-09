@@ -16,9 +16,11 @@ import {
   PanTool as DragIcon,
   CleaningServices as EraserIcon,
   ExpandMore as ExpandMoreIcon,
+  Gesture as GestureIcon,
   Image as LabelIcon,
   Layers as LayersIcon,
   Timeline as LineIcon,
+  Mouse as MouseIcon,
   Edit as PencilIcon,
   Place as PointIcon,
   Hexagon as PolygonIcon,
@@ -59,6 +61,7 @@ import { Matrix4 } from "math.gl";
 import React, { useState, useCallback, useEffect, useRef } from "react";
 import { DynamicLabelLayer } from "../../layers/DynamicLabelLayer";
 import { DrawBrushStrokeMode } from "../../modes/DrawBrushStrokeMode";
+import { DrawPolygonByDraggingMode } from "../../modes/DrawPolygonByDraggingMode";
 import { BrushRasterizer } from "../../utils/BrushRasterizer";
 
 const useStyles = makeStyles({
@@ -742,6 +745,16 @@ const AnnotationSection: React.FC<AnnotationSectionProps> = ({ onLayersChange })
           let mode = ViewMode;
           if (currentMode === "draw" && layer.id === selectedLayerId) {
             switch (currentShape) {
+              case "polygon":
+                // Select mode based on current draw mode for polygon
+                if (currentDrawMode === "drag") {
+                  console.log("🎯 Using DrawPolygonByDraggingMode for layer:", layer.id.slice(-8));
+                  mode = DrawPolygonByDraggingMode;
+                } else {
+                  console.log("🎯 Using DrawPolygonMode for layer:", layer.id.slice(-8));
+                  mode = DrawPolygonMode;
+                }
+                break;
               case "rectangle":
                 mode = DrawRectangleMode;
                 break;
@@ -752,6 +765,7 @@ const AnnotationSection: React.FC<AnnotationSectionProps> = ({ onLayersChange })
                 mode = DrawLineStringMode;
                 break;
               default:
+                // Default to polygon mode if shape is not recognized
                 mode = DrawPolygonMode;
                 break;
             }
@@ -1104,6 +1118,7 @@ const AnnotationSection: React.FC<AnnotationSectionProps> = ({ onLayersChange })
                       const result = rasterizer.rasterizeStroke(brushStroke, viewerBounds, layer.bounds);
 
                       // Update the layer's label data with incremented version
+                      // AND clear the vector features to prevent accumulation of brush strokes
                       setAnnotationLayers((prev) =>
                         prev.map((l) => {
                           if (l.id === layer.id) {
@@ -1111,6 +1126,7 @@ const AnnotationSection: React.FC<AnnotationSectionProps> = ({ onLayersChange })
                               ...l,
                               labelData: result.data,
                               dataVersion: (l.dataVersion || 0) + 1,
+                              features: [], // Clear vector features for label layers - we only store rasterized data
                             };
                           }
                           return l;
@@ -1120,11 +1136,11 @@ const AnnotationSection: React.FC<AnnotationSectionProps> = ({ onLayersChange })
                       // Save to history after brush stroke
                       setTimeout(() => saveToHistory(), 0);
 
-                      console.log("🖌️ Brush stroke rasterized and applied to layer");
+                      console.log("🖌️ Brush stroke rasterized and applied to layer, vector features cleared");
                     }
 
-                    // Clear the temporary vector stroke - this should trigger a re-render
-                    // We don't store brush strokes as vector features
+                    // Brush stroke has been rasterized and applied to the label layer
+                    // The vector stroke should not be stored as a feature
                   }
                 }
               },
@@ -1167,15 +1183,17 @@ const AnnotationSection: React.FC<AnnotationSectionProps> = ({ onLayersChange })
         hasEditHandles: l.props.mode && l.props.mode !== ViewMode && (l.props.selectedFeatureIndexes?.length || 0) > 0,
       })),
     );
-  }, [annotationLayers, currentMode, selectedLayerId, currentShape, brushSize, brushLabelValue, onLayersChange]);
+  }, [annotationLayers, currentMode, selectedLayerId, currentShape, currentDrawMode, brushSize, brushLabelValue, onLayersChange]);
 
   // Handle adding annotation layer with type selection
   const [showLayerTypeDialog, setShowLayerTypeDialog] = useState(false);
 
   const handleAddAnnotationLayer = useCallback(() => {
     console.log("🎯 Add annotation layer button clicked!");
+    console.log("🎯 Current showLayerTypeDialog state:", showLayerTypeDialog);
     setShowLayerTypeDialog(true);
-  }, []);
+    console.log("🎯 Set showLayerTypeDialog to true");
+  }, [showLayerTypeDialog]);
 
   const handleCreateLayer = useCallback(
     (layerType: "vector" | "label") => {
@@ -1246,6 +1264,14 @@ const AnnotationSection: React.FC<AnnotationSectionProps> = ({ onLayersChange })
   const handleDrawModeChange = (event: React.MouseEvent<HTMLElement>, newDrawMode: string) => {
     if (newDrawMode !== null) {
       setCurrentDrawMode(newDrawMode as any);
+      
+      // Auto-switch to polygon when drag mode is selected (since drag mode only works with polygons)
+      if (newDrawMode === "drag" && currentShape !== "polygon") {
+        console.log("🔄 Switching to polygon shape for drag mode");
+        setCurrentShape("polygon");
+      }
+      
+      console.log("🔄 Draw mode changed to:", newDrawMode);
     }
   };
 
@@ -1502,36 +1528,78 @@ const AnnotationSection: React.FC<AnnotationSectionProps> = ({ onLayersChange })
         {/* Vector Shape Controls */}
         {currentMode === "draw" && selectedLayer && selectedLayer.type === "vector" && (
           <Grid item>
-            <Typography
-              variant="caption"
-              component="div"
-              style={{ color: "rgba(255, 255, 255, 0.7)", fontSize: "10px" }}
-            >
-              Shape:
-            </Typography>
-            <div className={classes.toolGroup}>
-              <ToggleButtonGroup value={currentShape} exclusive onChange={handleShapeChange} size="small">
-                <ToggleButton value="polygon" className={classes.toggleButton}>
-                  <Tooltip title="Polygon">
-                    <PolygonIcon fontSize="small" />
-                  </Tooltip>
-                </ToggleButton>
-                <ToggleButton value="rectangle" className={classes.toggleButton}>
-                  <Tooltip title="Rectangle">
-                    <RectangleIcon fontSize="small" />
-                  </Tooltip>
-                </ToggleButton>
-                <ToggleButton value="point" className={classes.toggleButton}>
-                  <Tooltip title="Point">
-                    <PointIcon fontSize="small" />
-                  </Tooltip>
-                </ToggleButton>
-                <ToggleButton value="line" className={classes.toggleButton}>
-                  <Tooltip title="Line">
-                    <LineIcon fontSize="small" />
-                  </Tooltip>
-                </ToggleButton>
-              </ToggleButtonGroup>
+            {/* Combined Draw Mode and Shape Selection */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+              {/* First Row: Draw Mode and Shape */}
+              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                {/* Draw Mode */}
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
+                  <Typography
+                    variant="caption"
+                    component="div"
+                    style={{ color: "rgba(255, 255, 255, 0.7)", fontSize: "10px", marginBottom: "4px" }}
+                  >
+                    Draw Mode:
+                  </Typography>
+                  <ToggleButtonGroup value={currentDrawMode} exclusive onChange={handleDrawModeChange} size="small">
+                    <ToggleButton value="click" className={classes.toggleButton}>
+                      <Tooltip title="Click Mode - Click to place points, double-click to finish">
+                        <MouseIcon fontSize="small" />
+                      </Tooltip>
+                    </ToggleButton>
+                    <ToggleButton value="drag" className={classes.toggleButton}>
+                      <Tooltip title="Drag Mode - Drag to draw continuously (Polygon only)">
+                        <GestureIcon fontSize="small" />
+                      </Tooltip>
+                    </ToggleButton>
+                  </ToggleButtonGroup>
+                </div>
+
+                {/* Shape Selection */}
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
+                  <Typography
+                    variant="caption"
+                    component="div"
+                    style={{ color: "rgba(255, 255, 255, 0.7)", fontSize: "10px", marginBottom: "4px" }}
+                  >
+                    Shape:
+                  </Typography>
+                  <ToggleButtonGroup value={currentShape} exclusive onChange={handleShapeChange} size="small">
+                    <ToggleButton value="polygon" className={classes.toggleButton}>
+                      <Tooltip title={currentDrawMode === "click" ? "Polygon (Click Mode)" : "Polygon (Drag Mode)"}>
+                        <PolygonIcon fontSize="small" />
+                      </Tooltip>
+                    </ToggleButton>
+                    <ToggleButton 
+                      value="rectangle" 
+                      className={classes.toggleButton}
+                      disabled={currentDrawMode === "drag"}
+                    >
+                      <Tooltip title={currentDrawMode === "drag" ? "Rectangle (Not available in drag mode)" : "Rectangle"}>
+                        <RectangleIcon fontSize="small" />
+                      </Tooltip>
+                    </ToggleButton>
+                    <ToggleButton 
+                      value="point" 
+                      className={classes.toggleButton}
+                      disabled={currentDrawMode === "drag"}
+                    >
+                      <Tooltip title={currentDrawMode === "drag" ? "Point (Not available in drag mode)" : "Point"}>
+                        <PointIcon fontSize="small" />
+                      </Tooltip>
+                    </ToggleButton>
+                    <ToggleButton 
+                      value="line" 
+                      className={classes.toggleButton}
+                      disabled={currentDrawMode === "drag"}
+                    >
+                      <Tooltip title={currentDrawMode === "drag" ? "Line (Not available in drag mode)" : "Line"}>
+                        <LineIcon fontSize="small" />
+                      </Tooltip>
+                    </ToggleButton>
+                  </ToggleButtonGroup>
+                </div>
+              </div>
             </div>
           </Grid>
         )}

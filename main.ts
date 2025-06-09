@@ -2,6 +2,14 @@ import { hyphaWebsocketClient } from "hypha-rpc";
 import debounce from "just-debounce-it";
 import * as vizarr from "./src/index";
 
+// Global variable to store image dimensions when images are added
+let currentImageDimensions: { width: number; height: number } | null = null;
+
+// Function to get dimensions from the first image layer if available
+function getImageLayerDimensions(): { width: number; height: number } | null {
+  return currentImageDimensions;
+}
+
 async function main() {
   console.log(`vizarr v${vizarr.version}: https://github.com/hms-dbmi/vizarr`);
   // biome-ignore lint/style/noNonNullAssertion: We know the element exists
@@ -26,6 +34,11 @@ async function main() {
           console.log("📸 addImage called via HyphaCore API:", config);
           try {
             viewer.addImage(config);
+            
+            // Try to extract image dimensions from the config to store for later label layer creation
+            // This is a simplified approach - in a real implementation we'd want to access the actual loaded image
+            // For now, we'll set a flag that an image was loaded but won't extract dimensions
+            // The annotation controller should have access to the image layer dimensions
             console.log("✅ Image added successfully");
             return {
               success: true,
@@ -266,9 +279,35 @@ async function main() {
             const layerId = `label-layer-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
             const layerName = options.name || `Label Layer ${Date.now()}`;
 
-            // Default label layer dimensions and bounds
-            const width = options.width || 1024;
-            const height = options.height || 1024;
+            // Get dimensions from existing image layer if available and not specified in options
+            let width = options.width;
+            let height = options.height;
+            
+            if (!width || !height) {
+              // Try to get dimensions from annotation controller which should have access to image layers
+              const annotationController = (window as any).annotationController;
+              let imageDimensions = null;
+              
+              if (annotationController && annotationController.getImageDimensions) {
+                try {
+                  imageDimensions = await annotationController.getImageDimensions();
+                } catch (error) {
+                  console.warn("Could not get image dimensions from annotation controller:", error);
+                }
+              }
+              
+              if (imageDimensions) {
+                width = width || imageDimensions.width;
+                height = height || imageDimensions.height;
+                console.log(`📏 Using image layer dimensions: ${width}x${height}`);
+              } else {
+                // Fall back to default dimensions
+                width = width || 1024;
+                height = height || 1024;
+                console.log(`📏 No image layer found, using default dimensions: ${width}x${height}`);
+              }
+            }
+            
             const bounds = options.bounds || [0, 0, width, height];
 
             // Create initial empty label data
