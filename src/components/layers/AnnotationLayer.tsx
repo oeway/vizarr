@@ -1,4 +1,4 @@
-import { EditableGeoJsonLayer, DrawPolygonMode } from '@deck.gl-community/editable-layers';
+import { DrawPolygonMode, EditableGeoJsonLayer } from "@deck.gl-community/editable-layers";
 
 interface AnnotationLayerProps {
   initialFeatures?: any;
@@ -11,37 +11,36 @@ interface AnnotationLayerProps {
 
 export function createAnnotationLayer({
   initialFeatures = {
-    type: 'FeatureCollection',
-    features: []
+    type: "FeatureCollection",
+    features: [],
   },
   onEdit,
   mode = DrawPolygonMode,
   visible = true,
   pickable = true,
-  selectedFeatureIndexes = []
+  selectedFeatureIndexes = [],
 }: AnnotationLayerProps) {
-
   return new EditableGeoJsonLayer({
-    id: 'annotation-layer',
+    id: "annotation-layer",
     data: initialFeatures,
     mode,
     selectedFeatureIndexes,
     onEdit,
     visible,
     pickable,
-    
+
     // Styling for polygons
     getFillColor: [255, 140, 0, 60], // Orange with transparency
     getLineColor: [255, 140, 0, 255], // Solid orange border
     getLineWidth: 2,
-    
+
     // Tentative feature styling (while drawing)
     getTentativeFillColor: [255, 140, 0, 40],
     getTentativeLineColor: [255, 140, 0, 255],
     getTentativeLineWidth: 2,
-    
+
     // Interactive properties
     autoHighlight: true,
-    highlightColor: [255, 255, 0, 100]
+    highlightColor: [255, 255, 0, 100],
   });
-} 
+}

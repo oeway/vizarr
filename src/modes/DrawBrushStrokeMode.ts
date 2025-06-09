@@ -1,18 +1,18 @@
 // Custom brush stroke mode based on deck.gl-community DrawPolygonByDraggingMode
 // Enables drag-to-paint functionality for brush annotation tools
 
-import throttle from 'lodash.throttle';
-import { GeoJsonEditMode } from '@deck.gl-community/editable-layers';
+import { GeoJsonEditMode } from "@deck.gl-community/editable-layers";
 import type {
   ClickEvent,
+  DraggingEvent,
+  GuideFeatureCollection,
+  ModeProps,
   StartDraggingEvent,
   StopDraggingEvent,
-  DraggingEvent,
-  ModeProps,
-  GuideFeatureCollection,
-  Tooltip
-} from '@deck.gl-community/editable-layers';
-import type { LineString } from '@deck.gl-community/editable-layers';
+  Tooltip,
+} from "@deck.gl-community/editable-layers";
+import type { LineString } from "@deck.gl-community/editable-layers";
+import throttle from "lodash.throttle";
 
 type DraggingHandler = (event: DraggingEvent, props: ModeProps<any>) => void;
 
@@ -27,16 +27,16 @@ export class DrawBrushStrokeMode extends GeoJsonEditMode {
   handleStartDragging(event: StartDraggingEvent, props: ModeProps<any>) {
     // Prevent map panning while brushing
     event.cancelPan();
-    
+
     // Start a new brush stroke
     this.resetClickSequence();
     this.addClickSequence(event);
-    
+
     // Set up throttled dragging for performance
     const throttleMs = props.modeConfig?.throttleMs || 16; // ~60fps default
     this.handleDraggingThrottled = throttle(this.handleDraggingAux.bind(this), throttleMs);
-    
-    console.log('🖌️ Started brush stroke at:', event.mapCoords);
+
+    console.log("🖌️ Started brush stroke at:", event.mapCoords);
   }
 
   handleDragging(event: DraggingEvent, props: ModeProps<any>) {
@@ -48,39 +48,39 @@ export class DrawBrushStrokeMode extends GeoJsonEditMode {
   handleDraggingAux(event: DraggingEvent, props: ModeProps<any>) {
     // Add points continuously while dragging
     this.addClickSequence(event);
-    
+
     // Emit intermediate update for real-time preview
     props.onEdit({
       updatedData: props.data,
-      editType: 'addTentativePosition',
-      editContext: { 
+      editType: "addTentativePosition",
+      editContext: {
         position: event.mapCoords,
-        brushStroke: true
-      }
+        brushStroke: true,
+      },
     });
   }
 
   handleStopDragging(event: StopDraggingEvent, props: ModeProps<any>) {
-    console.log('🖌️ Stopped brush stroke');
-    
+    console.log("🖌️ Stopped brush stroke");
+
     // Cancel throttled function
     if (this.handleDraggingThrottled && (this.handleDraggingThrottled as any).cancel) {
       (this.handleDraggingThrottled as any).cancel();
     }
-    
+
     // Add the final point
     this.addClickSequence(event);
     const clickSequence = this.getClickSequence();
-    
+
     if (clickSequence.length > 1) {
       // Create the completed brush stroke as a LineString
       const brushStroke: LineString = {
-        type: 'LineString',
-        coordinates: [...clickSequence]
+        type: "LineString",
+        coordinates: [...clickSequence],
       };
-      
-      console.log('🖌️ Completing brush stroke with', clickSequence.length, 'points');
-      
+
+      console.log("🖌️ Completing brush stroke with", clickSequence.length, "points");
+
       // Emit the completed stroke
       const editAction = this.getAddFeatureAction(brushStroke, props.data);
       if (editAction) {
@@ -89,30 +89,30 @@ export class DrawBrushStrokeMode extends GeoJsonEditMode {
           editContext: {
             ...editAction.editContext,
             brushStroke: true,
-            strokeComplete: true
-          }
+            strokeComplete: true,
+          },
         });
       }
     }
-    
+
     // Reset for next stroke
     this.resetClickSequence();
   }
 
   // Handle keyboard shortcuts
   handleKeyUp(event: KeyboardEvent, props: ModeProps<any>) {
-    if (event.key === 'Escape') {
-      console.log('🖌️ Cancelled brush stroke');
+    if (event.key === "Escape") {
+      console.log("🖌️ Cancelled brush stroke");
       this.resetClickSequence();
-      
+
       if (this.handleDraggingThrottled) {
         this.handleDraggingThrottled = null;
       }
-      
+
       props.onEdit({
         updatedData: props.data,
-        editType: 'cancelFeature',
-        editContext: { brushStroke: true }
+        editType: "cancelFeature",
+        editContext: { brushStroke: true },
       });
     }
   }
@@ -121,28 +121,28 @@ export class DrawBrushStrokeMode extends GeoJsonEditMode {
   getGuides(props: ModeProps<any>): GuideFeatureCollection {
     const { lastPointerMoveEvent } = props;
     const clickSequence = this.getClickSequence();
-    
+
     const guides: GuideFeatureCollection = {
-      type: 'FeatureCollection',
-      features: []
+      type: "FeatureCollection",
+      features: [],
     };
 
     // Show the current brush stroke as a tentative line
     if (clickSequence.length > 0) {
       const currentCoords = lastPointerMoveEvent ? [...clickSequence, lastPointerMoveEvent.mapCoords] : clickSequence;
-      
+
       const tentativeStroke = {
-        type: 'Feature' as const,
+        type: "Feature" as const,
         properties: {
-          guideType: 'tentative' as const,
-          brushStroke: true
+          guideType: "tentative" as const,
+          brushStroke: true,
         },
         geometry: {
-          type: 'LineString' as const,
-          coordinates: currentCoords
-        }
+          type: "LineString" as const,
+          coordinates: currentCoords,
+        },
       };
-      
+
       guides.features.push(tentativeStroke);
     }
 
@@ -151,11 +151,11 @@ export class DrawBrushStrokeMode extends GeoJsonEditMode {
 
   // Update cursor for brush mode
   handlePointerMove(event: any, props: ModeProps<any>) {
-    props.onUpdateCursor('crosshair');
+    props.onUpdateCursor("crosshair");
   }
 
   // Disable tooltips for brush mode (they interfere with painting)
   getTooltips(props: ModeProps<any>): Tooltip[] {
     return [];
   }
-} 
+}

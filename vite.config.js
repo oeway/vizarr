@@ -41,10 +41,10 @@ export default defineConfig({
       },
     },
   },
-  server: { 
+  server: {
     port: 3030,
     strictPort: true,
-    open: process.env.NODE_ENV !== 'test' ? false : false,
+    open: false,
     host: true,
     cors: true,
   },

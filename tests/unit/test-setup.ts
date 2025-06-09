@@ -1,9 +1,9 @@
-import '@testing-library/jest-dom';
+import "@testing-library/jest-dom";
 
 // Mock window globals that may not be available in Jest environment
-Object.defineProperty(window, 'matchMedia', {
+Object.defineProperty(window, "matchMedia", {
   writable: true,
-  value: jest.fn().mockImplementation(query => ({
+  value: jest.fn().mockImplementation((query) => ({
     matches: false,
     media: query,
     onchange: null,
@@ -32,15 +32,15 @@ const mockCanvas = {
       height: 720,
     },
   })),
-  toDataURL: jest.fn(() => 'data:image/png;base64,'),
+  toDataURL: jest.fn(() => "data:image/png;base64,"),
   width: 1280,
   height: 720,
 };
 
-Object.defineProperty(document, 'createElement', {
+Object.defineProperty(document, "createElement", {
   writable: true,
   value: jest.fn().mockImplementation((tagName) => {
-    if (tagName === 'canvas') {
+    if (tagName === "canvas") {
       return mockCanvas;
     }
     return {};
@@ -48,16 +48,16 @@ Object.defineProperty(document, 'createElement', {
 });
 
 // Mock URL for window.location tests
-delete (window as any).location;
+(window as any).location = undefined;
 window.location = {
-  href: 'http://localhost:3030',
-  search: '',
-  hash: '',
-  pathname: '/',
+  href: "http://localhost:3030",
+  search: "",
+  hash: "",
+  pathname: "/",
 } as any;
 
 // Mock document.documentElement for React DOM
-Object.defineProperty(document, 'documentElement', {
+Object.defineProperty(document, "documentElement", {
   value: {
     style: {},
     scrollTop: 0,
@@ -69,7 +69,7 @@ Object.defineProperty(document, 'documentElement', {
 });
 
 // Mock document.body for React DOM
-Object.defineProperty(document, 'body', {
+Object.defineProperty(document, "body", {
   value: {
     style: {},
     scrollTop: 0,
@@ -83,12 +83,9 @@ Object.defineProperty(document, 'body', {
 // Mock console methods for cleaner test output
 const originalError = console.error;
 beforeAll(() => {
-  jest.spyOn(console, 'error').mockImplementation((...args) => {
+  jest.spyOn(console, "error").mockImplementation((...args) => {
     // Only show errors that are not expected test warnings
-    if (
-      !args[0]?.toString().includes('Warning') &&
-      !args[0]?.toString().includes('act()')
-    ) {
+    if (!args[0]?.toString().includes("Warning") && !args[0]?.toString().includes("act()")) {
       originalError(...args);
     }
   });
@@ -96,4 +93,4 @@ beforeAll(() => {
 
 afterAll(() => {
   (console.error as jest.Mock).mockRestore();
-}); 
+});

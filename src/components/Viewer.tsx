@@ -41,7 +41,7 @@ export default function Viewer() {
 
   const handleAnnotationLayersChange = React.useCallback((newLayers: any[]) => {
     setAnnotationLayers(newLayers);
-    console.log('Annotation layers updated:', newLayers.length);
+    console.log("Annotation layers updated:", newLayers.length);
   }, []);
 
   return (
@@ -57,13 +57,13 @@ export default function Viewer() {
         views={[new OrthographicView({ id: "ortho", controller: true })]}
         glOptions={glOptions}
         style={{
-          position: 'fixed',
-          top: '0',
-          left: '0',
-          width: '100%',
-          height: '100%',
-          zIndex: '0',
-          overflow: 'hidden'
+          position: "fixed",
+          top: "0",
+          left: "0",
+          width: "100%",
+          height: "100%",
+          zIndex: "0",
+          overflow: "hidden",
         }}
       />
       <Menu onAnnotationLayersChange={handleAnnotationLayersChange} />

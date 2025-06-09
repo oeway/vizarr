@@ -187,12 +187,12 @@ const imageLabelsIstanceFamily = atomFamily((a: Atom<LayerState>) =>
 
 export const layerAtoms = atom((get) => {
   const sourceAtoms = get(sourceInfoAtomAtoms);
-  
+
   // Handle empty case - return empty array if no sources
   if (sourceAtoms.length === 0) {
     return [];
   }
-  
+
   const layerAtoms = [];
   for (const sourceAtom of sourceAtoms) {
     const sourceData = get(sourceAtom);
@@ -200,14 +200,14 @@ export const layerAtoms = atom((get) => {
     layerAtoms.push(layerInstanceFamily(layerStateAtom));
     layerAtoms.push(imageLabelsIstanceFamily(layerStateAtom));
   }
-  
+
   // Filter out any null/undefined atoms before passing to waitForAll
-  const validAtoms = layerAtoms.filter(atom => atom != null);
-  
+  const validAtoms = layerAtoms.filter((atom) => atom != null);
+
   if (validAtoms.length === 0) {
     return [];
   }
-  
+
   return get(waitForAll(validAtoms)).flat();
 });
 

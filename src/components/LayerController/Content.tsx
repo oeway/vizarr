@@ -4,11 +4,11 @@ import React from "react";
 
 import AcquisitionController from "./AcquisitionController";
 import AddChannelButton from "./AddChannelButton";
+import AnnotationSection from "./AnnotationSection";
 import AxisSliders from "./AxisSliders";
 import ChannelController from "./ChannelController";
 import Labels from "./Labels";
 import OpacitySlider from "./OpacitySlider";
-import AnnotationSection from "./AnnotationSection";
 
 import { useLayerState } from "../../hooks";
 import { range } from "../../utils";
@@ -31,7 +31,7 @@ interface ContentProps {
 function Content({ onAnnotationLayersChange }: ContentProps = {}) {
   const [layer] = useLayerState();
   const nChannels = layer.layerProps.selections.length;
-  
+
   return (
     <Details>
       <Grid container direction="column">
@@ -86,7 +86,7 @@ function Content({ onAnnotationLayersChange }: ContentProps = {}) {
             </Grid>
           </>
         )}
-        
+
         {/* Annotation Section */}
         {onAnnotationLayersChange && (
           <Grid item>

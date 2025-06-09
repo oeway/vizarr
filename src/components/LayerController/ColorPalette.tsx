@@ -1,5 +1,5 @@
-import { IconButton } from "@mui/material";
 import { Lens } from "@mui/icons-material";
+import { IconButton } from "@mui/material";
 import { makeStyles } from "@mui/styles";
 import React from "react";
 import { COLORS, hexToRGB } from "../../utils";

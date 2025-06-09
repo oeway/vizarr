@@ -50,6 +50,14 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
+      - name: Type Check
+        run: pnpm check
+        continue-on-error: true
+
+      - name: Lint
+        run: pnpm lint
+        continue-on-error: true
+
       - name: Build
         run: pnpm build
         env:

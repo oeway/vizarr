@@ -9,8 +9,5 @@
     "allowSyntheticDefaultImports": true,
     "types": ["jest", "@testing-library/jest-dom"]
   },
-  "include": [
-    "tests/**/*",
-    "src/**/*"
-  ]
-} 
+  "include": ["tests/**/*", "src/**/*"]
+}
