@@ -19,7 +19,17 @@ async function main() {
   // Initialize HyphaCore integration only when running in an iframe
   const isInIframe = window.self !== window.top;
 
-  if (isInIframe) {
+  // ── REEF: when ?source= is set, treat as fully self-configured ────────
+  // Vanilla vizarr only handles URL params after `setupLocalClient` returns,
+  // which never resolves when the parent isn't a Hypha server.  When the
+  // parent passed us a source URL there's no need for an RPC bridge — load
+  // directly and skip the iframe handshake.
+  const hasUrlSource = url.searchParams.has("source");
+  if (hasUrlSource) {
+    console.log("📂 [REEF] URL-source mode — skipping iframe RPC setup");
+  }
+
+  if (isInIframe && !hasUrlSource) {
     try {
       console.log("Running in iframe - connecting to Hypha Core...");
       // @ts-expect-error - TODO: fix this
